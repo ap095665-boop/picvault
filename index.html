@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Wallet</title>
+
+<style>
+body{background:#0b0b0b;color:#00ff88;font-family:monospace;margin:0;text-align:center}
+button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88;font-size:18px}
+.display{width:240px;height:50px;margin:20px auto;background:#000;border-radius:10px;font-size:26px;display:flex;align-items:center;justify-content:center}
+.keypad{display:grid;grid-template-columns:repeat(3,80px);gap:15px;justify-content:center;margin-top:20px}
+.key{width:80px;height:80px;font-size:22px;border-radius:12px}
+#addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
+.carousel{display:flex;overflow-x:auto;gap:20px;padding:20px}
+.card{min-width:260px;background:#111;border-radius:12px;padding:15px}
+.card img{width:100%;border-radius:10px}
+</style>
+</head>
+
+<body>
+
+<!-- PIN LOCK -->
+<div id="lock">
+<h2 id="lockTitle">Create 4 Digit PIN</h2>
+<div class="display" id="display"></div>
+
+<div class="keypad">
+<button class="key" onclick="press(1)">1</button>
+<button class="key" onclick="press(2)">2</button>
+<button class="key" onclick="press(3)">3</button>
+<button class="key" onclick="press(4)">4</button>
+<button class="key" onclick="press(5)">5</button>
+<button class="key" onclick="press(6)">6</button>
+<button class="key" onclick="press(7)">7</button>
+<button class="key" onclick="press(8)">8</button>
+<button class="key" onclick="press(9)">9</button>
+<button class="key" onclick="clearCode()">C</button>
+<button class="key" onclick="press(0)">0</button>
+<button class="key" onclick="submitPIN()">OK</button>
+</div>
+</div>
+
+<!-- MAIN -->
+<div id="main" style="display:none">
+<h2>QR Wallet</h2>
+<div class="carousel" id="qrList"></div>
+</div>
+
+<button id="addBtn" onclick="openPopup()" style="display:none">+</button>
+
+<!-- POPUP -->
+<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
+<h3>Add QR Code</h3>
+<input id="qrTitle" placeholder="Title (GPay / PhonePe)">
+<br><br>
+<input type="file" accept="image/*" onchange="loadImage(event)">
+<br><br>
+<button onclick="saveQR()">SAVE</button>
+<button onclick="closePopup()">CANCEL</button>
+</div>
+
+<script>
+
+// ================= PIN SYSTEM =================
+let entered="";
+function press(n){entered+=n;display.innerText="•".repeat(entered.length);}
+function clearCode(){entered="";display.innerText="";}
+
+function submitPIN(){
+ let saved=localStorage.getItem("qrPIN");
+
+ if(!saved){
+  if(entered.length!==4){alert("Enter 4 digit PIN");return;}
+  localStorage.setItem("qrPIN",entered);
+  alert("PIN saved");
+  entered="";display.innerText="";
+  lockTitle.innerText="Enter PIN";
+  return;
+ }
+
+ if(entered===saved){
+  lock.style.display="none";
+  main.style.display="block";
+  addBtn.style.display="block";
+  loadQR();
+ }else alert("Wrong PIN");
+
+ clearCode();
+}
+
+if(localStorage.getItem("qrPIN")){
+ document.getElementById("lockTitle").innerText="Enter PIN";
+}
+
+// ================= INDEXED DB =================
+let db;
+
+let request=indexedDB.open("qrVault",1);
+
+request.onupgradeneeded=function(e){
+ db=e.target.result;
+ db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});
+};
+
+request.onsuccess=function(e){
+ db=e.target.result;
+ loadQR();
+};
+
+// ================= IMAGE =================
+let tempImg="";
+
+function loadImage(e){
+ let reader=new FileReader();
+ reader.onload=function(){ tempImg=reader.result; };
+ reader.readAsDataURL(e.target.files[0]);
+}
+
+// ================= SAVE =================
+function saveQR(){
+ let title=qrTitle.value;
+ if(!title || !tempImg){alert("Add title & image");return;}
+
+ let tx=db.transaction("qrStore","readwrite");
+ let store=tx.objectStore("qrStore");
+
+ store.add({title:title,image:tempImg});
+
+ popup.style.display="none";
+ qrTitle.value="";
+ tempImg="";
+ loadQR();
+}
+
+// ================= LOAD =================
+function loadQR(){
+ if(!db) return;
+
+ let tx=db.transaction("qrStore","readonly");
+ let store=tx.objectStore("qrStore");
+
+ let req=store.getAll();
+
+ req.onsuccess=function(){
+  let arr=req.result;
+  let html="";
+
+  arr.forEach(item=>{
+   html+=`
+   <div class="card">
+   <h4>${item.title}</h4>
+   <img src="${item.image}">
+   </div>`;
+  });
+
+  qrList.innerHTML=html;
+ };
+}
+
+// ================= POPUP =================
+function openPopup(){popup.style.display="block";}
+function closePopup(){popup.style.display="none";}
+
+</script>
+</body>
+</html>
