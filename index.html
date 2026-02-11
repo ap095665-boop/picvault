@@ -67,6 +67,9 @@ opacity:0.3;
 100%{transform:translate(-20%,-20%) rotate(360deg)}
 }
 </style>
+ <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0b0b">
+ 
 </head>
 
 <body>
@@ -217,7 +220,11 @@ function loadQR(){
 // ================= POPUP =================
 function openPopup(){popup.style.display="block";}
 function closePopup(){popup.style.display="none";}
-
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js")
+    .then(() => console.log("PWA caching enabled"))
+    .catch(err => console.log("SW error", err));
+}
 </script>
 </body>
 </html>
