@@ -71,7 +71,8 @@ input,select{width:90%;padding:12px;margin:6px;background:#fff;color:#000;border
 <button id="addBtn" onclick="openPopup()" style="display:none">+</button>
 
 <!-- POPUP -->
-<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
+<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;overflow-y:auto;        /* enables vertical scroll */
+ -webkit-overflow-scrolling:touch">
 
 <h3>Add QR</h3>
 
