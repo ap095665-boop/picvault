@@ -15,10 +15,9 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 .card{min-width:260px;background:#111;border-radius:12px;padding:15px}
 .card img{width:100%;border-radius:10px}
 
-/* luxury gradient */
+/* background animations */
 #bgLuxury{
-position:fixed;
-top:0;left:0;width:100%;height:100%;z-index:-1;
+position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;
 background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
 background-size:800% 800%;
 animation:luxMove 18s ease infinite;
@@ -29,7 +28,6 @@ animation:luxMove 18s ease infinite;
 100%{background-position:0% 50%}
 }
 
-/* wave */
 #waveGlow{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;overflow:hidden;pointer-events:none;}
 .wave{position:absolute;width:200%;height:200%;background:radial-gradient(circle at center,#00ff8844,transparent 60%);animation:waveMove 12s linear infinite;}
 .wave:nth-child(2){animation-duration:18s;opacity:0.5;}
@@ -42,9 +40,6 @@ animation:luxMove 18s ease infinite;
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0b0b">
-
-<script src="https://unpkg.com/jsqr"></script>
-
 </head>
 
 <body>
@@ -80,13 +75,25 @@ animation:luxMove 18s ease infinite;
 <!-- MAIN -->
 <div id="main" style="display:none">
 <h2>QR Wallet</h2>
-
-<button onclick="openScanner()">📷 Scan Payment QR</button>
-
 <div class="carousel" id="qrList"></div>
 </div>
 
 <button id="addBtn" onclick="openPopup()" style="display:none">+</button>
+
+<!-- PAYMENT APP CHOOSER -->
+<button onclick="openUPIChooser()" style="
+position:fixed;
+bottom:90px;
+left:20px;
+right:20px;
+background:#00ff88;
+color:#000;
+font-size:18px;
+border-radius:12px;
+padding:14px;
+">
+💳 Open Payment Apps
+</button>
 
 <!-- ADD QR POPUP -->
 <div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
@@ -97,14 +104,6 @@ animation:luxMove 18s ease infinite;
 <br><br>
 <button onclick="saveQR()">SAVE</button>
 <button onclick="closePopup()">CANCEL</button>
-</div>
-
-<!-- QR SCANNER -->
-<div id="scannerBox" style="position:fixed;bottom:0;left:0;right:0;background:#000;padding:12px;border-top:1px solid #222;display:none">
-<button onclick="startScanner()">Start Camera</button>
-<video id="qrVideo" style="width:100%;display:none"></video>
-<canvas id="qrCanvas" style="display:none"></canvas>
-<button onclick="stopScanner()">Close</button>
 </div>
 
 <script>
@@ -156,7 +155,6 @@ request.onsuccess=function(e){
 
 // IMAGE COMPRESSION
 let tempImg="";
-
 function loadImage(e){
  let file=e.target.files[0];
  let reader=new FileReader();
@@ -184,7 +182,7 @@ function loadImage(e){
  reader.readAsDataURL(file);
 }
 
-// SAVE
+// SAVE QR
 function saveQR(){
  let title=qrTitle.value;
  if(!title || !tempImg){alert("Add title & image");return;}
@@ -200,13 +198,12 @@ function saveQR(){
  loadQR();
 }
 
-// LOAD QR WITH LAZY LOAD
+// REAL HORIZONTAL LAZY LOAD
 function loadQR(){
  if(!db) return;
 
  let tx=db.transaction("qrStore","readonly");
  let store=tx.objectStore("qrStore");
-
  let req=store.getAll();
 
  req.onsuccess=function(){
@@ -217,74 +214,48 @@ function loadQR(){
    html+=`
    <div class="card">
    <h4>${item.title}</h4>
-   <img src="${item.image}" loading="lazy">
+   <img data-src="${item.image}" class="lazyQR">
    </div>`;
   });
 
   qrList.innerHTML=html;
+  activateLazyLoading();
  };
+}
+
+function activateLazyLoading(){
+ const images=document.querySelectorAll(".lazyQR");
+
+ const observer=new IntersectionObserver(entries=>{
+   entries.forEach(entry=>{
+     if(entry.isIntersecting){
+       const img=entry.target;
+       img.src=img.dataset.src;
+       observer.unobserve(img);
+     }
+   });
+ });
+
+ images.forEach(img=>observer.observe(img));
 }
 
 // POPUP
 function openPopup(){popup.style.display="block";}
 function closePopup(){popup.style.display="none";}
 
-// QR SCANNER
-let videoStream;
-
-function openScanner(){scannerBox.style.display="block";}
-
-function stopScanner(){
- scannerBox.style.display="none";
- if(videoStream){videoStream.getTracks().forEach(t=>t.stop());}
- qrVideo.style.display="none";
+// PAYMENT APP CHOOSER
+function openUPIChooser(){
+ window.location.href="upi://pay";
 }
 
-async function startScanner(){
-
- qrVideo.style.display="block";
-
- videoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
- qrVideo.srcObject=videoStream;
- qrVideo.play();
-
- scanFrame();
-}
-
-function scanFrame(){
-
- let canvas=qrCanvas;
- let ctx=canvas.getContext("2d");
-
- if(qrVideo.readyState===qrVideo.HAVE_ENOUGH_DATA){
-
-  canvas.width=qrVideo.videoWidth;
-  canvas.height=qrVideo.videoHeight;
-
-  ctx.drawImage(qrVideo,0,0);
-
-  let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-
-  let code=jsQR(imageData.data,canvas.width,canvas.height);
-
-  if(code){
-   let data=code.data;
-   if(data.startsWith("upi://")){
-     window.location.href=data;
-   }else alert("QR scanned");
-   stopScanner();
-   return;
-  }
- }
-
- requestAnimationFrame(scanFrame);
-}
-
-// PWA
+// PWA SERVICE WORKER
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.register("sw.js")
+    .then(()=>console.log("PWA ready"))
+    .catch(()=>console.log("SW error"));
 }
 
 </script>
 </body>
 </html>
+```0
