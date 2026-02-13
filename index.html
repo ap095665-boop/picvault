@@ -11,11 +11,22 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 .keypad{display:grid;grid-template-columns:repeat(3,80px);gap:15px;justify-content:center;margin-top:20px}
 .key{width:80px;height:80px;font-size:22px;border-radius:12px}
 #addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
-.carousel{display:flex;overflow-x:auto;gap:20px;padding:20px}
-.card{min-width:260px;background:#111;border-radius:12px;padding:15px}
-.card img{width:100%;border-radius:10px}
 
-/* background animations */
+/* one card per screen swipe */
+.carousel{
+ display:flex;
+ overflow-x:auto;
+ scroll-snap-type:x mandatory;
+ scroll-behavior:smooth;
+}
+.card{
+ min-width:100vw;
+ scroll-snap-align:center;
+ padding:20px;
+}
+.card img{width:90%;border-radius:12px}
+
+/* background animation */
 #bgLuxury{
 position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;
 background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
@@ -27,15 +38,6 @@ animation:luxMove 18s ease infinite;
 50%{background-position:100% 50%}
 100%{background-position:0% 50%}
 }
-
-#waveGlow{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;overflow:hidden;pointer-events:none;}
-.wave{position:absolute;width:200%;height:200%;background:radial-gradient(circle at center,#00ff8844,transparent 60%);animation:waveMove 12s linear infinite;}
-.wave:nth-child(2){animation-duration:18s;opacity:0.5;}
-.wave:nth-child(3){animation-duration:25s;opacity:0.3;}
-@keyframes waveMove{
-0%{transform:translate(-20%,-20%) rotate(0deg)}
-100%{transform:translate(-20%,-20%) rotate(360deg)}
-}
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -45,11 +47,6 @@ animation:luxMove 18s ease infinite;
 <body>
 
 <div id="bgLuxury"></div>
-<div id="waveGlow">
-<div class="wave"></div>
-<div class="wave"></div>
-<div class="wave"></div>
-</div>
 
 <!-- PIN LOCK -->
 <div id="lock">
@@ -80,25 +77,10 @@ animation:luxMove 18s ease infinite;
 
 <button id="addBtn" onclick="openPopup()" style="display:none">+</button>
 
-<!-- PAYMENT APP CHOOSER -->
-<button onclick="openUPIChooser()" style="
-position:fixed;
-bottom:90px;
-left:20px;
-right:20px;
-background:#00ff88;
-color:#000;
-font-size:18px;
-border-radius:12px;
-padding:14px;
-">
-💳 Open Payment Apps
-</button>
-
-<!-- ADD QR POPUP -->
+<!-- POPUP -->
 <div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
 <h3>Add QR Code</h3>
-<input id="qrTitle" placeholder="Title (GPay / PhonePe)">
+<input id="qrTitle" placeholder="Title">
 <br><br>
 <input type="file" accept="image/*" onchange="loadImage(event)">
 <br><br>
@@ -106,9 +88,11 @@ padding:14px;
 <button onclick="closePopup()">CANCEL</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr"></script>
+
 <script>
 
-// PIN SYSTEM
+// PIN
 let entered="";
 function press(n){entered+=n;display.innerText="•".repeat(entered.length);}
 function clearCode(){entered="";display.innerText="";}
@@ -139,7 +123,7 @@ if(localStorage.getItem("qrPIN")){
  document.getElementById("lockTitle").innerText="Enter PIN";
 }
 
-// INDEXED DB
+// IndexedDB
 let db;
 let request=indexedDB.open("qrVault",1);
 
@@ -153,8 +137,10 @@ request.onsuccess=function(e){
  loadQR();
 };
 
-// IMAGE COMPRESSION
+// IMAGE + COMPRESS + QR READ
 let tempImg="";
+let tempUPI="";
+
 function loadImage(e){
  let file=e.target.files[0];
  let reader=new FileReader();
@@ -164,25 +150,32 @@ function loadImage(e){
   img.src=ev.target.result;
 
   img.onload=function(){
+
+   // compress
    let canvas=document.createElement("canvas");
    let ctx=canvas.getContext("2d");
-
-   let maxWidth=800;
-   let scale=maxWidth/img.width;
-
-   canvas.width=maxWidth;
-   canvas.height=img.height*scale;
-
+   canvas.width=800;
+   canvas.height=(img.height/img.width)*800;
    ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
    tempImg=canvas.toDataURL("image/jpeg",0.6);
+
+   // scan QR
+   let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+   let code=jsQR(imageData.data,canvas.width,canvas.height);
+
+   if(code){
+    let match=code.data.match(/upi:\/\/pay\?pa=([^&]+)/);
+    if(match) tempUPI=match[1];
+   }
+
   };
  };
 
  reader.readAsDataURL(file);
 }
 
-// SAVE QR
+// SAVE
 function saveQR(){
  let title=qrTitle.value;
  if(!title || !tempImg){alert("Add title & image");return;}
@@ -190,15 +183,16 @@ function saveQR(){
  let tx=db.transaction("qrStore","readwrite");
  let store=tx.objectStore("qrStore");
 
- store.add({title:title,image:tempImg});
+ store.add({title:title,image:tempImg,upi:tempUPI});
 
  popup.style.display="none";
  qrTitle.value="";
  tempImg="";
+ tempUPI="";
  loadQR();
 }
 
-// REAL HORIZONTAL LAZY LOAD
+// LOAD ONE BY ONE + LAZY
 function loadQR(){
  if(!db) return;
 
@@ -208,54 +202,62 @@ function loadQR(){
 
  req.onsuccess=function(){
   let arr=req.result;
-  let html="";
+  qrList.innerHTML="";
 
-  arr.forEach(item=>{
-   html+=`
-   <div class="card">
-   <h4>${item.title}</h4>
-   <img data-src="${item.image}" class="lazyQR">
-   </div>`;
+  arr.forEach((item,i)=>{
+   let card=document.createElement("div");
+   card.className="card";
+
+   let img=document.createElement("img");
+   img.dataset.src=item.image;
+
+   // double tap copy UPI
+   let lastTap=0;
+   img.addEventListener("touchend",()=>{
+    let now=Date.now();
+    if(now-lastTap<300){
+      if(item.upi){
+       navigator.clipboard.writeText(item.upi);
+       alert("UPI ID copied");
+      }
+    }
+    lastTap=now;
+   });
+
+   card.appendChild(img);
+   qrList.appendChild(card);
   });
 
-  qrList.innerHTML=html;
-  activateLazyLoading();
+  initLazySwipe();
  };
 }
 
-function activateLazyLoading(){
- const images=document.querySelectorAll(".lazyQR");
+// lazy load only visible card
+function initLazySwipe(){
+ const imgs=document.querySelectorAll("img[data-src]");
 
  const observer=new IntersectionObserver(entries=>{
-   entries.forEach(entry=>{
-     if(entry.isIntersecting){
-       const img=entry.target;
-       img.src=img.dataset.src;
-       observer.unobserve(img);
-     }
-   });
- });
+  entries.forEach(entry=>{
+   if(entry.isIntersecting){
+    let img=entry.target;
+    img.src=img.dataset.src;
+    observer.unobserve(img);
+   }
+  });
+ },{threshold:0.7});
 
- images.forEach(img=>observer.observe(img));
+ imgs.forEach(img=>observer.observe(img));
 }
 
-// POPUP
+// popup
 function openPopup(){popup.style.display="block";}
 function closePopup(){popup.style.display="none";}
 
-// PAYMENT APP CHOOSER
-function openUPIChooser(){
- window.location.href="upi://pay";
-}
-
-// PWA SERVICE WORKER
+// PWA
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js")
-    .then(()=>console.log("PWA ready"))
-    .catch(()=>console.log("SW error"));
+ navigator.serviceWorker.register("sw.js");
 }
 
 </script>
 </body>
 </html>
-```0
