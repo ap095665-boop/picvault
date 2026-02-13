@@ -10,25 +10,14 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 .display{width:240px;height:50px;margin:20px auto;background:#000;border-radius:10px;font-size:26px;display:flex;align-items:center;justify-content:center}
 .keypad{display:grid;grid-template-columns:repeat(3,80px);gap:15px;justify-content:center;margin-top:20px}
 .key{width:80px;height:80px;font-size:22px;border-radius:12px}
+
 #addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
 
 .carousel{display:flex;overflow-x:auto;gap:20px;padding:20px;scroll-snap-type:x mandatory}
-.card{min-width:100%;background:#111;border-radius:12px;padding:15px;scroll-snap-align:center;position:relative}
+.card{min-width:100%;background:#111;border-radius:12px;padding:15px;scroll-snap-align:center}
 .card img{width:100%;border-radius:10px}
 
-#bgLuxury{
-position:fixed;top:0;left:0;width:100%;height:100%;
-z-index:-1;
-background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
-background-size:800% 800%;
-animation:luxMove 18s ease infinite;
-}
-
-@keyframes luxMove{
-0%{background-position:0% 50%}
-50%{background-position:100% 50%}
-100%{background-position:0% 50%}
-}
+.popup{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;display:none}
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -37,9 +26,7 @@ animation:luxMove 18s ease infinite;
 
 <body>
 
-<div id="bgLuxury"></div>
-
-<!-- PIN LOCK -->
+<!-- PIN -->
 <div id="lock">
 <h2 id="lockTitle">Create 4 Digit PIN</h2>
 <div class="display" id="display"></div>
@@ -66,164 +53,163 @@ animation:luxMove 18s ease infinite;
 <div class="carousel" id="qrList"></div>
 </div>
 
-<button id="addBtn" onclick="openPopup()" style="display:none">+</button>
+<button id="addBtn" onclick="openChoice()" style="display:none">+</button>
 
-<!-- POPUP -->
-<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
-<h3>Add QR Code</h3>
-
-<input id="qrTitle" placeholder="Title (GPay / PhonePe)">
+<!-- CHOICE POPUP -->
+<div id="choicePopup" class="popup">
+<h3>Add QR</h3>
+<button onclick="openUpload()">Upload QR</button>
 <br><br>
-
-<input type="file" accept="image/*" onchange="loadImage(event)">
+<button onclick="openGenerate()">Generate QR</button>
 <br><br>
-
-<input id="qrText" placeholder="Detected UPI / Text (editable)">
-<br><br>
-
-<button onclick="saveQR()">SAVE</button>
-<button onclick="closePopup()">CANCEL</button>
+<button onclick="closeChoice()">Cancel</button>
 </div>
 
-<!-- jsQR LIBRARY -->
+<!-- UPLOAD POPUP -->
+<div id="uploadPopup" class="popup">
+<h3>Upload QR</h3>
+<input id="qrTitle" placeholder="Title">
+<br><br>
+<input type="file" accept="image/*" onchange="loadImage(event)">
+<br><br>
+<input id="qrText" placeholder="Detected text">
+<br><br>
+<button onclick="saveUpload()">Save</button>
+<button onclick="closeUpload()">Cancel</button>
+</div>
+
+<!-- GENERATOR POPUP -->
+<div id="generatePopup" class="popup">
+<h3>Generate QR</h3>
+<input id="genTitle" placeholder="Title">
+<br><br>
+<input id="genData" placeholder="Enter UPI / text / link">
+<br><br>
+<canvas id="genCanvas" style="background:#fff;border-radius:10px"></canvas>
+<br><br>
+<button onclick="generateQR()">Generate</button>
+<button onclick="saveGenerated()">Save</button>
+<button onclick="closeGenerate()">Cancel</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script>
 
-// PIN SYSTEM
+// PIN
 let entered="";
 function press(n){entered+=n;display.innerText="•".repeat(entered.length);}
 function clearCode(){entered="";display.innerText="";}
 
 function submitPIN(){
  let saved=localStorage.getItem("qrPIN");
-
  if(!saved){
-  if(entered.length!==4){alert("Enter 4 digit PIN");return;}
+  if(entered.length!==4){alert("Enter PIN");return;}
   localStorage.setItem("qrPIN",entered);
   alert("PIN saved");
   entered="";display.innerText="";
   lockTitle.innerText="Enter PIN";
   return;
  }
-
  if(entered===saved){
   lock.style.display="none";
   main.style.display="block";
   addBtn.style.display="block";
   loadQR();
  }else alert("Wrong PIN");
-
  clearCode();
 }
 
-if(localStorage.getItem("qrPIN")){
- document.getElementById("lockTitle").innerText="Enter PIN";
-}
-
-// INDEXED DB
+// DB
 let db;
-let request=indexedDB.open("qrVault",1);
-
-request.onupgradeneeded=function(e){
+let req=indexedDB.open("qrVault",1);
+req.onupgradeneeded=e=>{
  db=e.target.result;
  db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});
 };
-
-request.onsuccess=function(e){
+req.onsuccess=e=>{
  db=e.target.result;
  loadQR();
 };
 
-// IMAGE + QR DECODE
+// IMAGE
 let tempImg="";
-
 function loadImage(e){
  let file=e.target.files[0];
- if(!file) return;
-
  let reader=new FileReader();
- reader.onload=function(evt){
-
+ reader.onload=evt=>{
   let img=new Image();
   img.src=evt.target.result;
-
   img.onload=function(){
-
-   // compress
    let canvas=document.createElement("canvas");
    let ctx=canvas.getContext("2d");
-
    let scale=600/img.width;
    canvas.width=600;
    canvas.height=img.height*scale;
-
    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
    tempImg=canvas.toDataURL("image/jpeg",0.7);
 
-   // QR DECODE
    let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
    let code=jsQR(imageData.data,canvas.width,canvas.height);
-
-   if(code){
-    document.getElementById("qrText").value=code.data;
-   }
-
-  };
-
+   if(code) qrText.value=code.data;
+  }
  };
  reader.readAsDataURL(file);
 }
 
-// SAVE
-function saveQR(){
+// SAVE UPLOAD
+function saveUpload(){
  let title=qrTitle.value;
  let text=qrText.value;
-
- if(!title || !tempImg){alert("Add title & image");return;}
+ if(!title||!tempImg){alert("Add image");return;}
 
  let tx=db.transaction("qrStore","readwrite");
- let store=tx.objectStore("qrStore");
-
- store.add({title:title,image:tempImg,text:text});
-
- popup.style.display="none";
- qrTitle.value="";
- qrText.value="";
- tempImg="";
+ tx.objectStore("qrStore").add({title,image:tempImg,text});
+ closeUpload();
  loadQR();
 }
 
-// LOAD + LAZY
+// GENERATOR
+let generatedData="";
+function generateQR(){
+ let data=genData.value;
+ generatedData=data;
+ QRCode.toCanvas(genCanvas,data,{width:300});
+}
+
+function saveGenerated(){
+ let title=genTitle.value;
+ let img=genCanvas.toDataURL();
+ if(!title||!generatedData){alert("Generate first");return;}
+
+ let tx=db.transaction("qrStore","readwrite");
+ tx.objectStore("qrStore").add({title,image:img,text:generatedData});
+ closeGenerate();
+ loadQR();
+}
+
+// LOAD
 function loadQR(){
- if(!db) return;
-
+ if(!db)return;
  let tx=db.transaction("qrStore","readonly");
- let store=tx.objectStore("qrStore");
-
- let req=store.getAll();
-
- req.onsuccess=function(){
-  let arr=req.result;
+ let req=tx.objectStore("qrStore").getAll();
+ req.onsuccess=()=>{
   let html="";
-
-  arr.forEach(item=>{
+  req.result.forEach(item=>{
    html+=`
    <div class="card">
    <h4>${item.title}</h4>
-   <img data-src="${item.image}" ondblclick="copyQR('${item.text || ""}')">
-   <button onclick="deleteQR(${item.id})" style="margin-top:10px;background:#ff4d4d;color:#fff">Delete</button>
+   <img data-src="${item.image}" ondblclick="copyQR('${item.text||""}')">
+   <button onclick="deleteQR(${item.id})">Delete</button>
    </div>`;
   });
-
   qrList.innerHTML=html;
-  activateLazyLoad();
+  lazy();
  };
 }
 
-// LAZY LOAD
-function activateLazyLoad(){
+function lazy(){
  const imgs=document.querySelectorAll("img[data-src]");
  const observer=new IntersectionObserver(entries=>{
   entries.forEach(entry=>{
@@ -232,38 +218,31 @@ function activateLazyLoad(){
     observer.unobserve(entry.target);
    }
   });
- },{root:qrList,threshold:0.5});
-
+ },{root:qrList});
  imgs.forEach(img=>observer.observe(img));
 }
 
-// COPY
-function copyQR(text){
- if(!text){alert("No UPI stored");return;}
- navigator.clipboard.writeText(text);
- alert("Copied: "+text);
-}
-
-// DELETE
+// ACTIONS
+function copyQR(text){navigator.clipboard.writeText(text);alert("Copied");}
 function deleteQR(id){
- if(!confirm("Delete this QR permanently?")) return;
-
+ if(!confirm("Delete?"))return;
  let tx=db.transaction("qrStore","readwrite");
- let store=tx.objectStore("qrStore");
-
- store.delete(id);
- tx.oncomplete=function(){loadQR();}
+ tx.objectStore("qrStore").delete(id);
+ loadQR();
 }
 
-// POPUP
-function openPopup(){popup.style.display="block";}
-function closePopup(){popup.style.display="none";}
+// POPUPS
+function openChoice(){choicePopup.style.display="block";}
+function closeChoice(){choicePopup.style.display="none";}
+function openUpload(){closeChoice();uploadPopup.style.display="block";}
+function closeUpload(){uploadPopup.style.display="none";}
+function openGenerate(){closeChoice();generatePopup.style.display="block";}
+function closeGenerate(){generatePopup.style.display="none";}
 
 // PWA
-if ("serviceWorker" in navigator) {
+if("serviceWorker"in navigator){
  navigator.serviceWorker.register("sw.js");
 }
-
 </script>
 </body>
 </html>
