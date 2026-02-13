@@ -17,8 +17,7 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 .card img{width:100%;border-radius:10px}
 
 #bgLuxury{
-position:fixed;
-top:0;left:0;width:100%;height:100%;
+position:fixed;top:0;left:0;width:100%;height:100%;
 z-index:-1;
 background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
 background-size:800% 800%;
@@ -86,6 +85,9 @@ animation:luxMove 18s ease infinite;
 <button onclick="closePopup()">CANCEL</button>
 </div>
 
+<!-- jsQR LIBRARY -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
 <script>
 
 // PIN SYSTEM
@@ -133,40 +135,44 @@ request.onsuccess=function(e){
  loadQR();
 };
 
-// IMAGE COMPRESSION + OCR TEXT EXTRACT
+// IMAGE + QR DECODE
 let tempImg="";
 
 function loadImage(e){
  let file=e.target.files[0];
  if(!file) return;
 
- let img=new Image();
  let reader=new FileReader();
-
  reader.onload=function(evt){
+
+  let img=new Image();
   img.src=evt.target.result;
+
+  img.onload=function(){
+
+   // compress
+   let canvas=document.createElement("canvas");
+   let ctx=canvas.getContext("2d");
+
+   let scale=600/img.width;
+   canvas.width=600;
+   canvas.height=img.height*scale;
+
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+   tempImg=canvas.toDataURL("image/jpeg",0.7);
+
+   // QR DECODE
+   let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+   let code=jsQR(imageData.data,canvas.width,canvas.height);
+
+   if(code){
+    document.getElementById("qrText").value=code.data;
+   }
+
+  };
+
  };
-
- img.onload=function(){
-
-  // compress image
-  let canvas=document.createElement("canvas");
-  let ctx=canvas.getContext("2d");
-
-  let scale=600/img.width;
-  canvas.width=600;
-  canvas.height=img.height*scale;
-
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-  tempImg=canvas.toDataURL("image/jpeg",0.7);
-
-  // simple UPI text detection
-  let text="";
-  if(tempImg.includes("upi")) text="upi id detected";
-  document.getElementById("qrText").value=text;
- };
-
  reader.readAsDataURL(file);
 }
 
@@ -189,7 +195,7 @@ function saveQR(){
  loadQR();
 }
 
-// TRUE LAZY LOAD
+// LOAD + LAZY
 function loadQR(){
  if(!db) return;
 
@@ -216,7 +222,7 @@ function loadQR(){
  };
 }
 
-// lazy load observer
+// LAZY LOAD
 function activateLazyLoad(){
  const imgs=document.querySelectorAll("img[data-src]");
  const observer=new IntersectionObserver(entries=>{
@@ -231,9 +237,9 @@ function activateLazyLoad(){
  imgs.forEach(img=>observer.observe(img));
 }
 
-// COPY UPI TEXT
+// COPY
 function copyQR(text){
- if(!text){alert("No text stored");return;}
+ if(!text){alert("No UPI stored");return;}
  navigator.clipboard.writeText(text);
  alert("Copied: "+text);
 }
@@ -255,9 +261,7 @@ function closePopup(){popup.style.display="none";}
 
 // PWA
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js")
-    .then(() => console.log("PWA caching enabled"))
-    .catch(err => console.log("SW error", err));
+ navigator.serviceWorker.register("sw.js");
 }
 
 </script>
