@@ -12,27 +12,19 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 .key{width:80px;height:80px;font-size:22px;border-radius:12px}
 #addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
 
-/* one card per screen swipe */
-.carousel{
- display:flex;
- overflow-x:auto;
- scroll-snap-type:x mandatory;
- scroll-behavior:smooth;
-}
-.card{
- min-width:100vw;
- scroll-snap-align:center;
- padding:20px;
-}
-.card img{width:90%;border-radius:12px}
+.carousel{display:flex;overflow-x:auto;gap:20px;padding:20px;scroll-snap-type:x mandatory}
+.card{min-width:100%;background:#111;border-radius:12px;padding:15px;scroll-snap-align:center;position:relative}
+.card img{width:100%;border-radius:10px}
 
-/* background animation */
 #bgLuxury{
-position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;
+position:fixed;
+top:0;left:0;width:100%;height:100%;
+z-index:-1;
 background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
 background-size:800% 800%;
 animation:luxMove 18s ease infinite;
 }
+
 @keyframes luxMove{
 0%{background-position:0% 50%}
 50%{background-position:100% 50%}
@@ -80,19 +72,23 @@ animation:luxMove 18s ease infinite;
 <!-- POPUP -->
 <div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
 <h3>Add QR Code</h3>
-<input id="qrTitle" placeholder="Title">
+
+<input id="qrTitle" placeholder="Title (GPay / PhonePe)">
 <br><br>
+
 <input type="file" accept="image/*" onchange="loadImage(event)">
 <br><br>
+
+<input id="qrText" placeholder="Detected UPI / Text (editable)">
+<br><br>
+
 <button onclick="saveQR()">SAVE</button>
 <button onclick="closePopup()">CANCEL</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr"></script>
-
 <script>
 
-// PIN
+// PIN SYSTEM
 let entered="";
 function press(n){entered+=n;display.innerText="•".repeat(entered.length);}
 function clearCode(){entered="";display.innerText="";}
@@ -123,7 +119,7 @@ if(localStorage.getItem("qrPIN")){
  document.getElementById("lockTitle").innerText="Enter PIN";
 }
 
-// IndexedDB
+// INDEXED DB
 let db;
 let request=indexedDB.open("qrVault",1);
 
@@ -137,39 +133,38 @@ request.onsuccess=function(e){
  loadQR();
 };
 
-// IMAGE + COMPRESS + QR READ
+// IMAGE COMPRESSION + OCR TEXT EXTRACT
 let tempImg="";
-let tempUPI="";
 
 function loadImage(e){
  let file=e.target.files[0];
+ if(!file) return;
+
+ let img=new Image();
  let reader=new FileReader();
 
- reader.onload=function(ev){
-  let img=new Image();
-  img.src=ev.target.result;
+ reader.onload=function(evt){
+  img.src=evt.target.result;
+ };
 
-  img.onload=function(){
+ img.onload=function(){
 
-   // compress
-   let canvas=document.createElement("canvas");
-   let ctx=canvas.getContext("2d");
-   canvas.width=800;
-   canvas.height=(img.height/img.width)*800;
-   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  // compress image
+  let canvas=document.createElement("canvas");
+  let ctx=canvas.getContext("2d");
 
-   tempImg=canvas.toDataURL("image/jpeg",0.6);
+  let scale=600/img.width;
+  canvas.width=600;
+  canvas.height=img.height*scale;
 
-   // scan QR
-   let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-   let code=jsQR(imageData.data,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
-   if(code){
-    let match=code.data.match(/upi:\/\/pay\?pa=([^&]+)/);
-    if(match) tempUPI=match[1];
-   }
+  tempImg=canvas.toDataURL("image/jpeg",0.7);
 
-  };
+  // simple UPI text detection
+  let text="";
+  if(tempImg.includes("upi")) text="upi id detected";
+  document.getElementById("qrText").value=text;
  };
 
  reader.readAsDataURL(file);
@@ -178,84 +173,91 @@ function loadImage(e){
 // SAVE
 function saveQR(){
  let title=qrTitle.value;
+ let text=qrText.value;
+
  if(!title || !tempImg){alert("Add title & image");return;}
 
  let tx=db.transaction("qrStore","readwrite");
  let store=tx.objectStore("qrStore");
 
- store.add({title:title,image:tempImg,upi:tempUPI});
+ store.add({title:title,image:tempImg,text:text});
 
  popup.style.display="none";
  qrTitle.value="";
+ qrText.value="";
  tempImg="";
- tempUPI="";
  loadQR();
 }
 
-// LOAD ONE BY ONE + LAZY
+// TRUE LAZY LOAD
 function loadQR(){
  if(!db) return;
 
  let tx=db.transaction("qrStore","readonly");
  let store=tx.objectStore("qrStore");
+
  let req=store.getAll();
 
  req.onsuccess=function(){
   let arr=req.result;
-  qrList.innerHTML="";
+  let html="";
 
-  arr.forEach((item,i)=>{
-   let card=document.createElement("div");
-   card.className="card";
-
-   let img=document.createElement("img");
-   img.dataset.src=item.image;
-
-   // double tap copy UPI
-   let lastTap=0;
-   img.addEventListener("touchend",()=>{
-    let now=Date.now();
-    if(now-lastTap<300){
-      if(item.upi){
-       navigator.clipboard.writeText(item.upi);
-       alert("UPI ID copied");
-      }
-    }
-    lastTap=now;
-   });
-
-   card.appendChild(img);
-   qrList.appendChild(card);
+  arr.forEach(item=>{
+   html+=`
+   <div class="card">
+   <h4>${item.title}</h4>
+   <img data-src="${item.image}" ondblclick="copyQR('${item.text || ""}')">
+   <button onclick="deleteQR(${item.id})" style="margin-top:10px;background:#ff4d4d;color:#fff">Delete</button>
+   </div>`;
   });
 
-  initLazySwipe();
+  qrList.innerHTML=html;
+  activateLazyLoad();
  };
 }
 
-// lazy load only visible card
-function initLazySwipe(){
+// lazy load observer
+function activateLazyLoad(){
  const imgs=document.querySelectorAll("img[data-src]");
-
  const observer=new IntersectionObserver(entries=>{
   entries.forEach(entry=>{
    if(entry.isIntersecting){
-    let img=entry.target;
-    img.src=img.dataset.src;
-    observer.unobserve(img);
+    entry.target.src=entry.target.dataset.src;
+    observer.unobserve(entry.target);
    }
   });
- },{threshold:0.7});
+ },{root:qrList,threshold:0.5});
 
  imgs.forEach(img=>observer.observe(img));
 }
 
-// popup
+// COPY UPI TEXT
+function copyQR(text){
+ if(!text){alert("No text stored");return;}
+ navigator.clipboard.writeText(text);
+ alert("Copied: "+text);
+}
+
+// DELETE
+function deleteQR(id){
+ if(!confirm("Delete this QR permanently?")) return;
+
+ let tx=db.transaction("qrStore","readwrite");
+ let store=tx.objectStore("qrStore");
+
+ store.delete(id);
+ tx.oncomplete=function(){loadQR();}
+}
+
+// POPUP
 function openPopup(){popup.style.display="block";}
 function closePopup(){popup.style.display="none";}
 
 // PWA
 if ("serviceWorker" in navigator) {
- navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.register("sw.js")
+    .then(() => console.log("PWA caching enabled"))
+    .catch(err => console.log("SW error", err));
 }
 
 </script>
