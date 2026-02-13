@@ -2,7 +2,10 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QR Wallet</title>
+<title>QR Wallet Pro</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0b0b">
 
 <style>
 body{background:#0b0b0b;color:#00ff88;font-family:monospace;margin:0;text-align:center}
@@ -13,20 +16,61 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 
 #addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
 
-.carousel{display:flex;overflow-x:auto;gap:20px;padding:20px;scroll-snap-type:x mandatory}
-.card{min-width:100%;background:#111;border-radius:12px;padding:15px;scroll-snap-align:center}
+.carousel{
+ display:flex;
+ overflow-x:auto;
+ scroll-snap-type:x mandatory;
+ padding:20px;
+ gap:20px;
+}
+
+.card{
+ min-width:100%;
+ scroll-snap-align:center;
+ background:#111;
+ border-radius:12px;
+ padding:15px;
+ position:relative;
+}
+
 .card img{width:100%;border-radius:10px}
 
-.popup{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;display:none}
-</style>
+.popup{
+position:fixed;
+top:0;left:0;right:0;bottom:0;
+background:#000;
+padding:20px;
+display:none;
+overflow:auto;
+}
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b0b0b">
+input,select{
+width:90%;
+padding:12px;
+margin:6px;
+background:#fff;
+color:#000;
+border:none;
+border-radius:8px;
+}
+
+.deleteBtn{
+position:absolute;
+top:10px;
+right:10px;
+background:#ff4444;
+color:#fff;
+padding:6px 10px;
+font-size:14px;
+}
+
+.previewBox{margin-top:15px}
+</style>
 </head>
 
 <body>
 
-<!-- PIN -->
+<!-- PIN LOCK -->
 <div id="lock">
 <h2 id="lockTitle">Create 4 Digit PIN</h2>
 <div class="display" id="display"></div>
@@ -49,55 +93,42 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 
 <!-- MAIN -->
 <div id="main" style="display:none">
-<h2>QR Wallet</h2>
+<h2>QR Wallet Pro</h2>
 <div class="carousel" id="qrList"></div>
 </div>
 
-<button id="addBtn" onclick="openChoice()" style="display:none">+</button>
-
-<!-- CHOICE POPUP -->
-<div id="choicePopup" class="popup">
-<h3>Add QR</h3>
-<button onclick="openUpload()">Upload QR</button>
-<br><br>
-<button onclick="openGenerate()">Generate QR</button>
-<br><br>
-<button onclick="closeChoice()">Cancel</button>
-</div>
-
-<!-- UPLOAD POPUP -->
-<div id="uploadPopup" class="popup">
-<h3>Upload QR</h3>
-<input id="qrTitle" placeholder="Title">
-<br><br>
-<input type="file" accept="image/*" onchange="loadImage(event)">
-<br><br>
-<input id="qrText" placeholder="Detected text">
-<br><br>
-<button onclick="saveUpload()">Save</button>
-<button onclick="closeUpload()">Cancel</button>
-</div>
+<button id="addBtn" onclick="openPopup()" style="display:none">+</button>
 
 <!-- GENERATOR POPUP -->
-<div id="generatePopup" class="popup">
-<h3>Generate QR</h3>
-<input id="genTitle" placeholder="Title">
-<br><br>
-<input id="genData" placeholder="Enter UPI / text / link">
-<br><br>
-<canvas id="genCanvas" style="background:#fff;border-radius:10px"></canvas>
-<br><br>
-<button onclick="generateQR()">Generate</button>
-<button onclick="saveGenerated()">Save</button>
-<button onclick="closeGenerate()">Cancel</button>
+<div id="popup" class="popup">
+<h3>Create QR</h3>
+
+<input id="qrTitle" placeholder="Title">
+
+<select id="qrType" onchange="buildFields()">
+<option value="text">Plain Text</option>
+<option value="link">Website Link</option>
+<option value="contact">Contact (vCard)</option>
+<option value="social">Social Links</option>
+<option value="wifi">WiFi</option>
+</select>
+
+<div id="dynamicFields"></div>
+
+<button onclick="addRow()">+ Add Row</button>
+<button onclick="generateQR()">Generate QR</button>
+
+<div class="previewBox" id="preview"></div>
+
+<button onclick="saveQR()">SAVE</button>
+<button onclick="closePopup()">CANCEL</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script>
 
-// PIN
+/* PIN SYSTEM */
 let entered="";
 function press(n){entered+=n;display.innerText="•".repeat(entered.length);}
 function clearCode(){entered="";display.innerText="";}
@@ -105,7 +136,7 @@ function clearCode(){entered="";display.innerText="";}
 function submitPIN(){
  let saved=localStorage.getItem("qrPIN");
  if(!saved){
-  if(entered.length!==4){alert("Enter PIN");return;}
+  if(entered.length!==4){alert("Enter 4 digit PIN");return;}
   localStorage.setItem("qrPIN",entered);
   alert("PIN saved");
   entered="";display.innerText="";
@@ -120,129 +151,148 @@ function submitPIN(){
  }else alert("Wrong PIN");
  clearCode();
 }
+if(localStorage.getItem("qrPIN")) lockTitle.innerText="Enter PIN";
 
-// DB
+/* INDEXED DB */
 let db;
-let req=indexedDB.open("qrVault",1);
-req.onupgradeneeded=e=>{
+let request=indexedDB.open("qrVault",1);
+request.onupgradeneeded=e=>{
  db=e.target.result;
  db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});
 };
-req.onsuccess=e=>{
- db=e.target.result;
- loadQR();
-};
+request.onsuccess=e=>{db=e.target.result; loadQR();};
 
-// IMAGE
-let tempImg="";
-function loadImage(e){
- let file=e.target.files[0];
- let reader=new FileReader();
- reader.onload=evt=>{
-  let img=new Image();
-  img.src=evt.target.result;
-  img.onload=function(){
-   let canvas=document.createElement("canvas");
-   let ctx=canvas.getContext("2d");
-   let scale=600/img.width;
-   canvas.width=600;
-   canvas.height=img.height*scale;
-   ctx.drawImage(img,0,0,canvas.width,canvas.height);
-   tempImg=canvas.toDataURL("image/jpeg",0.7);
+/* BUILD DEFAULT FIELDS */
+function buildFields(){
+ let type=qrType.value;
+ dynamicFields.innerHTML="";
 
-   let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-   let code=jsQR(imageData.data,canvas.width,canvas.height);
-   if(code) qrText.value=code.data;
-  }
- };
- reader.readAsDataURL(file);
+ if(type==="text") addRow("Text");
+
+ if(type==="link"){
+  addRow("URL");
+  addRow("Title");
+ }
+
+ if(type==="contact"){
+  addRow("Name");
+  addRow("Phone");
+  addRow("Email");
+ }
+
+ if(type==="social"){
+  addRow("Instagram");
+  addRow("WhatsApp");
+  addRow("LinkedIn");
+ }
+
+ if(type==="wifi"){
+  addRow("SSID");
+  addRow("Password");
+  addRow("Security");
+ }
 }
 
-// SAVE UPLOAD
-function saveUpload(){
- let title=qrTitle.value;
- let text=qrText.value;
- if(!title||!tempImg){alert("Add image");return;}
-
- let tx=db.transaction("qrStore","readwrite");
- tx.objectStore("qrStore").add({title,image:tempImg,text});
- closeUpload();
- loadQR();
+function addRow(label="Extra"){
+ let div=document.createElement("div");
+ div.innerHTML=`<input placeholder="${label}">`;
+ dynamicFields.appendChild(div);
 }
 
-// GENERATOR
+/* QR GENERATION */
 let generatedData="";
+let generatedImage="";
+
 function generateQR(){
- let data=genData.value;
- generatedData=data;
- QRCode.toCanvas(genCanvas,data,{width:300});
+ let type=qrType.value;
+ let values=[...dynamicFields.querySelectorAll("input")].map(i=>i.value);
+
+ if(type==="text") generatedData=values.join("\n");
+
+ if(type==="link") generatedData=values[0];
+
+ if(type==="contact"){
+ generatedData=`BEGIN:VCARD
+VERSION:3.0
+FN:${values[0]}
+TEL:${values[1]}
+EMAIL:${values[2]}
+END:VCARD`;
+ }
+
+ if(type==="social") generatedData=values.join("\n");
+
+ if(type==="wifi"){
+ generatedData=`WIFI:T:WPA;S:${values[0]};P:${values[1]};;`;
+ }
+
+ preview.innerHTML="";
+ QRCode.toDataURL(generatedData,{width:300},(err,url)=>{
+  generatedImage=url;
+  preview.innerHTML=`<img src="${url}" style="width:100%">`;
+ });
 }
 
-function saveGenerated(){
- let title=genTitle.value;
- let img=genCanvas.toDataURL();
- if(!title||!generatedData){alert("Generate first");return;}
+/* SAVE */
+function saveQR(){
+ if(!generatedImage){alert("Generate QR first");return;}
+ let title=qrTitle.value || "QR";
 
  let tx=db.transaction("qrStore","readwrite");
- tx.objectStore("qrStore").add({title,image:img,text:generatedData});
- closeGenerate();
+ let store=tx.objectStore("qrStore");
+
+ store.add({
+  title:title,
+  image:generatedImage,
+  data:generatedData
+ });
+
+ closePopup();
  loadQR();
 }
 
-// LOAD
+/* LOAD + LAZY SWIPE */
 function loadQR(){
- if(!db)return;
  let tx=db.transaction("qrStore","readonly");
- let req=tx.objectStore("qrStore").getAll();
+ let store=tx.objectStore("qrStore");
+ let req=store.getAll();
+
  req.onsuccess=()=>{
-  let html="";
+  qrList.innerHTML="";
   req.result.forEach(item=>{
-   html+=`
+   qrList.innerHTML+=`
    <div class="card">
-   <h4>${item.title}</h4>
-   <img data-src="${item.image}" ondblclick="copyQR('${item.text||""}')">
-   <button onclick="deleteQR(${item.id})">Delete</button>
+    <button class="deleteBtn" onclick="deleteQR(${item.id})">Delete</button>
+    <h4>${item.title}</h4>
+    <img src="${item.image}" loading="lazy" ondblclick="copyData('${item.data}')">
    </div>`;
   });
-  qrList.innerHTML=html;
-  lazy();
  };
 }
 
-function lazy(){
- const imgs=document.querySelectorAll("img[data-src]");
- const observer=new IntersectionObserver(entries=>{
-  entries.forEach(entry=>{
-   if(entry.isIntersecting){
-    entry.target.src=entry.target.dataset.src;
-    observer.unobserve(entry.target);
-   }
-  });
- },{root:qrList});
- imgs.forEach(img=>observer.observe(img));
-}
-
-// ACTIONS
-function copyQR(text){navigator.clipboard.writeText(text);alert("Copied");}
+/* DELETE */
 function deleteQR(id){
- if(!confirm("Delete?"))return;
+ if(!confirm("Delete QR?")) return;
  let tx=db.transaction("qrStore","readwrite");
  tx.objectStore("qrStore").delete(id);
  loadQR();
 }
 
-// POPUPS
-function openChoice(){choicePopup.style.display="block";}
-function closeChoice(){choicePopup.style.display="none";}
-function openUpload(){closeChoice();uploadPopup.style.display="block";}
-function closeUpload(){uploadPopup.style.display="none";}
-function openGenerate(){closeChoice();generatePopup.style.display="block";}
-function closeGenerate(){generatePopup.style.display="none";}
+/* COPY */
+function copyData(d){
+ navigator.clipboard.writeText(d);
+ alert("Copied");
+}
 
-// PWA
-if("serviceWorker"in navigator){
+/* POPUP */
+function openPopup(){popup.style.display="block"; buildFields();}
+function closePopup(){popup.style.display="none";}
+
+/* PWA */
+if ("serviceWorker" in navigator){
  navigator.serviceWorker.register("sw.js");
 }
 </script>
+
 </body>
 </html>
