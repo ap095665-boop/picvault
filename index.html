@@ -2,10 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QR Wallet Pro</title>
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b0b0b">
+<title>QR Wallet</title>
 
 <style>
 body{background:#0b0b0b;color:#00ff88;font-family:monospace;margin:0;text-align:center}
@@ -13,62 +10,36 @@ button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88
 .display{width:240px;height:50px;margin:20px auto;background:#000;border-radius:10px;font-size:26px;display:flex;align-items:center;justify-content:center}
 .keypad{display:grid;grid-template-columns:repeat(3,80px);gap:15px;justify-content:center;margin-top:20px}
 .key{width:80px;height:80px;font-size:22px;border-radius:12px}
-
 #addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
 
-.carousel{
- display:flex;
- overflow-x:auto;
- scroll-snap-type:x mandatory;
- padding:20px;
- gap:20px;
-}
-
-.card{
- min-width:100%;
- scroll-snap-align:center;
- background:#111;
- border-radius:12px;
- padding:15px;
- position:relative;
-}
-
+.carousel{display:flex;overflow-x:auto;gap:20px;padding:20px;scroll-snap-type:x mandatory}
+.card{min-width:100%;background:#111;border-radius:12px;padding:15px;scroll-snap-align:center;position:relative}
 .card img{width:100%;border-radius:10px}
 
-.popup{
-position:fixed;
-top:0;left:0;right:0;bottom:0;
-background:#000;
-padding:20px;
-display:none;
-overflow:auto;
+#bgLuxury{
+position:fixed;top:0;left:0;width:100%;height:100%;
+z-index:-1;
+background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
+background-size:800% 800%;
+animation:luxMove 18s ease infinite;
 }
 
-input,select{
-width:90%;
-padding:12px;
-margin:6px;
-background:#fff;
-color:#000;
-border:none;
-border-radius:8px;
+@keyframes luxMove{
+0%{background-position:0% 50%}
+50%{background-position:100% 50%}
+100%{background-position:0% 50%}
 }
 
-.deleteBtn{
-position:absolute;
-top:10px;
-right:10px;
-background:#ff4444;
-color:#fff;
-padding:6px 10px;
-font-size:14px;
-}
-
-.previewBox{margin-top:15px}
+input,select{width:90%;padding:12px;margin:6px;background:#fff;color:#000;border:none;border-radius:8px}
 </style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0b0b">
 </head>
 
 <body>
+
+<div id="bgLuxury"></div>
 
 <!-- PIN LOCK -->
 <div id="lock">
@@ -93,37 +64,55 @@ font-size:14px;
 
 <!-- MAIN -->
 <div id="main" style="display:none">
-<h2>QR Wallet Pro</h2>
+<h2>QR Wallet</h2>
 <div class="carousel" id="qrList"></div>
 </div>
 
 <button id="addBtn" onclick="openPopup()" style="display:none">+</button>
 
-<!-- GENERATOR POPUP -->
-<div id="popup" class="popup">
-<h3>Create QR</h3>
+<!-- POPUP -->
+<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px">
+
+<h3>Add QR</h3>
 
 <input id="qrTitle" placeholder="Title">
 
+<select id="qrMode" onchange="modeChange()">
+<option value="upload">Upload QR Image</option>
+<option value="generate">Generate QR</option>
+</select>
+
+<!-- UPLOAD -->
+<div id="uploadBox">
+<input type="file" accept="image/*" onchange="loadImage(event)">
+<input id="qrText" placeholder="Detected text (editable)">
+</div>
+
+<!-- GENERATOR -->
+<div id="generatorBox" style="display:none">
 <select id="qrType" onchange="buildFields()">
 <option value="text">Plain Text</option>
 <option value="link">Website Link</option>
-<option value="contact">Contact (vCard)</option>
+<option value="contact">Contact</option>
 <option value="social">Social Links</option>
 <option value="wifi">WiFi</option>
 </select>
 
-<div id="dynamicFields"></div>
+<div id="fields"></div>
 
 <button onclick="addRow()">+ Add Row</button>
-<button onclick="generateQR()">Generate QR</button>
+<button onclick="generateQR()">Generate</button>
 
-<div class="previewBox" id="preview"></div>
-
-<button onclick="saveQR()">SAVE</button>
-<button onclick="closePopup()">CANCEL</button>
+<div id="preview"></div>
 </div>
 
+<br>
+<button onclick="saveQR()">SAVE</button>
+<button onclick="closePopup()">CANCEL</button>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
 <script>
@@ -156,143 +145,158 @@ if(localStorage.getItem("qrPIN")) lockTitle.innerText="Enter PIN";
 /* INDEXED DB */
 let db;
 let request=indexedDB.open("qrVault",1);
-request.onupgradeneeded=e=>{
- db=e.target.result;
- db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});
-};
-request.onsuccess=e=>{db=e.target.result; loadQR();};
+request.onupgradeneeded=e=>{db=e.target.result;db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});};
+request.onsuccess=e=>{db=e.target.result;loadQR();};
 
-/* BUILD DEFAULT FIELDS */
+/* MODE SWITCH */
+function modeChange(){
+ if(qrMode.value==="upload"){
+  uploadBox.style.display="block";
+  generatorBox.style.display="none";
+ }else{
+  uploadBox.style.display="none";
+  generatorBox.style.display="block";
+  buildFields();
+ }
+}
+
+/* QR GENERATOR */
+let generatedData="";
+let generatedImage="";
+
 function buildFields(){
- let type=qrType.value;
- dynamicFields.innerHTML="";
-
- if(type==="text") addRow("Text");
-
- if(type==="link"){
-  addRow("URL");
-  addRow("Title");
- }
-
- if(type==="contact"){
-  addRow("Name");
-  addRow("Phone");
-  addRow("Email");
- }
-
- if(type==="social"){
-  addRow("Instagram");
-  addRow("WhatsApp");
-  addRow("LinkedIn");
- }
-
- if(type==="wifi"){
-  addRow("SSID");
-  addRow("Password");
-  addRow("Security");
- }
+ fields.innerHTML="";
+ if(qrType.value==="text") addRow("Text");
+ if(qrType.value==="link"){addRow("URL");addRow("Title");}
+ if(qrType.value==="contact"){addRow("Name");addRow("Phone");addRow("Email");}
+ if(qrType.value==="social"){addRow("Instagram");addRow("WhatsApp");}
+ if(qrType.value==="wifi"){addRow("SSID");addRow("Password");}
 }
 
 function addRow(label="Extra"){
  let div=document.createElement("div");
  div.innerHTML=`<input placeholder="${label}">`;
- dynamicFields.appendChild(div);
+ fields.appendChild(div);
 }
 
-/* QR GENERATION */
-let generatedData="";
-let generatedImage="";
-
 function generateQR(){
+ let vals=[...fields.querySelectorAll("input")].map(i=>i.value);
  let type=qrType.value;
- let values=[...dynamicFields.querySelectorAll("input")].map(i=>i.value);
 
- if(type==="text") generatedData=values.join("\n");
+ if(type==="text") generatedData=vals.join("\n");
+ if(type==="link") generatedData=vals[0];
+ if(type==="contact") generatedData=`BEGIN:VCARD\nVERSION:3.0\nFN:${vals[0]}\nTEL:${vals[1]}\nEMAIL:${vals[2]}\nEND:VCARD`;
+ if(type==="social") generatedData=vals.join("\n");
+ if(type==="wifi") generatedData=`WIFI:T:WPA;S:${vals[0]};P:${vals[1]};;`;
 
- if(type==="link") generatedData=values[0];
-
- if(type==="contact"){
- generatedData=`BEGIN:VCARD
-VERSION:3.0
-FN:${values[0]}
-TEL:${values[1]}
-EMAIL:${values[2]}
-END:VCARD`;
- }
-
- if(type==="social") generatedData=values.join("\n");
-
- if(type==="wifi"){
- generatedData=`WIFI:T:WPA;S:${values[0]};P:${values[1]};;`;
- }
-
- preview.innerHTML="";
- QRCode.toDataURL(generatedData,{width:300},(err,url)=>{
+ QRCode.toDataURL(generatedData,{width:600},(err,url)=>{
   generatedImage=url;
   preview.innerHTML=`<img src="${url}" style="width:100%">`;
  });
 }
 
+/* UPLOAD QR */
+let tempImg="";
+function loadImage(e){
+ let file=e.target.files[0];
+ let reader=new FileReader();
+ reader.onload=function(evt){
+  let img=new Image();
+  img.src=evt.target.result;
+  img.onload=function(){
+   let canvas=document.createElement("canvas");
+   let ctx=canvas.getContext("2d");
+   canvas.width=600;
+   canvas.height=img.height*(600/img.width);
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   tempImg=canvas.toDataURL("image/jpeg",0.7);
+
+   let data=ctx.getImageData(0,0,canvas.width,canvas.height);
+   let code=jsQR(data.data,canvas.width,canvas.height);
+   if(code) qrText.value=code.data;
+  };
+ };
+ reader.readAsDataURL(file);
+}
+
 /* SAVE */
 function saveQR(){
- if(!generatedImage){alert("Generate QR first");return;}
- let title=qrTitle.value || "QR";
+ let title=qrTitle.value;
+ if(!title){alert("Title required");return;}
+
+ let image="";
+ let text="";
+
+ if(qrMode.value==="upload"){
+  image=tempImg;
+  text=qrText.value;
+ }else{
+  image=generatedImage;
+  text=generatedData;
+ }
+
+ if(!image){alert("Generate or upload first");return;}
 
  let tx=db.transaction("qrStore","readwrite");
- let store=tx.objectStore("qrStore");
-
- store.add({
-  title:title,
-  image:generatedImage,
-  data:generatedData
- });
-
+ tx.objectStore("qrStore").add({title,image,text});
  closePopup();
  loadQR();
 }
 
-/* LOAD + LAZY SWIPE */
+/* LOAD */
 function loadQR(){
  let tx=db.transaction("qrStore","readonly");
- let store=tx.objectStore("qrStore");
- let req=store.getAll();
+ let req=tx.objectStore("qrStore").getAll();
 
- req.onsuccess=()=>{
+ req.onsuccess=function(){
   qrList.innerHTML="";
   req.result.forEach(item=>{
    qrList.innerHTML+=`
    <div class="card">
-    <button class="deleteBtn" onclick="deleteQR(${item.id})">Delete</button>
     <h4>${item.title}</h4>
-    <img src="${item.image}" loading="lazy" ondblclick="copyData('${item.data}')">
+    <img data-src="${item.image}" ondblclick="copyQR('${item.text}')">
+    <button onclick="deleteQR(${item.id})" style="margin-top:10px;background:#ff4d4d;color:#fff">Delete</button>
    </div>`;
   });
+  activateLazyLoad();
  };
+}
+
+/* LAZY */
+function activateLazyLoad(){
+ const imgs=document.querySelectorAll("img[data-src]");
+ const observer=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+   if(e.isIntersecting){
+    e.target.src=e.target.dataset.src;
+    observer.unobserve(e.target);
+   }
+  });
+ },{root:qrList,threshold:0.5});
+ imgs.forEach(img=>observer.observe(img));
+}
+
+/* COPY */
+function copyQR(text){
+ navigator.clipboard.writeText(text);
+ alert("Copied");
 }
 
 /* DELETE */
 function deleteQR(id){
- if(!confirm("Delete QR?")) return;
+ if(!confirm("Delete?")) return;
  let tx=db.transaction("qrStore","readwrite");
  tx.objectStore("qrStore").delete(id);
- loadQR();
-}
-
-/* COPY */
-function copyData(d){
- navigator.clipboard.writeText(d);
- alert("Copied");
+ tx.oncomplete=loadQR;
 }
 
 /* POPUP */
-function openPopup(){popup.style.display="block"; buildFields();}
+function openPopup(){popup.style.display="block";modeChange();}
 function closePopup(){popup.style.display="none";}
 
 /* PWA */
-if ("serviceWorker" in navigator){
- navigator.serviceWorker.register("sw.js");
-}
-</script>
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}
 
+</script>
 </body>
 </html>
