@@ -65,6 +65,10 @@ input,select{width:90%;padding:12px;margin:6px;background:#fff;color:#000;border
 <!-- MAIN -->
 <div id="main" style="display:none">
 <h2>QR Wallet</h2>
+
+<input id="titleSearch" placeholder="Search QR by title..."
+style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
+
 <div class="carousel" id="qrList"></div>
 </div>
 
@@ -294,6 +298,26 @@ function deleteQR(id){
 /* POPUP */
 function openPopup(){popup.style.display="block";modeChange();}
 function closePopup(){popup.style.display="none";}
+
+ document.addEventListener("DOMContentLoaded", () => {
+
+ const search = document.getElementById("titleSearch");
+
+ if(!search) return;
+
+ search.addEventListener("input", function(){
+
+   const query = this.value.toLowerCase().trim();
+   const cards = document.querySelectorAll(".card");
+
+   cards.forEach(card => {
+     const title = card.querySelector("h4").innerText.toLowerCase();
+     card.style.display = title.includes(query) ? "block" : "none";
+   });
+
+ });
+
+});
 
 /* PWA */
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}
