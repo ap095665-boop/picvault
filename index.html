@@ -99,6 +99,7 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 <option value="text">Plain Text</option>
 <option value="link">Website Link</option>
 <option value="wifi">WiFi</option>
+ <option value="vcard">Contact vCard</option>
 </select>
 
 <div id="fields"></div>
@@ -172,6 +173,12 @@ function buildFields(){
  if(qrType.value==="text") addRow("Text");
  if(qrType.value==="link"){addRow("URL");addRow("Title");}
  if(qrType.value==="wifi"){addRow("SSID");addRow("Password");}
+ if(qrType.value==="vcard"){
+  addRow("Full Name");
+  addRow("Phone");
+  addRow("Email");
+  addRow("Organization");
+ }
 }
 
 function addRow(label="Extra"){
@@ -187,6 +194,16 @@ function generateQR(){
  if(type==="text") generatedData=vals.join("\n");
  if(type==="link") generatedData=vals[0];
  if(type==="wifi") generatedData=`WIFI:T:WPA;S:${vals[0]};P:${vals[1]};;`;
+ if(type==="vcard")
+ generatedData =
+ `BEGIN:VCARD
+VERSION:3.0
+FN:${vals[0]}
+TEL:${vals[1]}
+EMAIL:${vals[2]}
+ORG:${vals[3]}
+END:VCARD`;
+
 
  QRCode.toDataURL(generatedData,{width:600},(err,url)=>{
   generatedImage=url;
