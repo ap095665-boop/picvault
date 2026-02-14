@@ -75,8 +75,7 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 <button id="addBtn" onclick="openPopup()" style="display:none">+</button>
 
 <!-- POPUP -->
-<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;overflow-y:auto;        /* enables vertical scroll */
- -webkit-overflow-scrolling:touch">
+<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch">
 
 <h3>Add QR</h3>
 
@@ -95,11 +94,10 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 
 <!-- GENERATOR -->
 <div id="generatorBox" style="display:none">
+
 <select id="qrType" onchange="buildFields()">
 <option value="text">Plain Text</option>
 <option value="link">Website Link</option>
-<option value="contact">Contact</option>
-<option value="social">Social Links</option>
 <option value="wifi">WiFi</option>
 </select>
 
@@ -173,8 +171,6 @@ function buildFields(){
  fields.innerHTML="";
  if(qrType.value==="text") addRow("Text");
  if(qrType.value==="link"){addRow("URL");addRow("Title");}
- if(qrType.value==="contact"){addRow("Name");addRow("Phone");addRow("Email");}
- if(qrType.value==="social"){addRow("Instagram");addRow("WhatsApp");}
  if(qrType.value==="wifi"){addRow("SSID");addRow("Password");}
 }
 
@@ -190,8 +186,6 @@ function generateQR(){
 
  if(type==="text") generatedData=vals.join("\n");
  if(type==="link") generatedData=vals[0];
- if(type==="contact") generatedData=`BEGIN:VCARD\nVERSION:3.0\nFN:${vals[0]}\nTEL:${vals[1]}\nEMAIL:${vals[2]}\nEND:VCARD`;
- if(type==="social") generatedData=vals.join("\n");
  if(type==="wifi") generatedData=`WIFI:T:WPA;S:${vals[0]};P:${vals[1]};;`;
 
  QRCode.toDataURL(generatedData,{width:600},(err,url)=>{
@@ -299,24 +293,19 @@ function deleteQR(id){
 function openPopup(){popup.style.display="block";modeChange();}
 function closePopup(){popup.style.display="none";}
 
- document.addEventListener("DOMContentLoaded", () => {
-
+/* SEARCH */
+document.addEventListener("DOMContentLoaded", () => {
  const search = document.getElementById("titleSearch");
-
  if(!search) return;
 
  search.addEventListener("input", function(){
-
    const query = this.value.toLowerCase().trim();
    const cards = document.querySelectorAll(".card");
-
    cards.forEach(card => {
      const title = card.querySelector("h4").innerText.toLowerCase();
      card.style.display = title.includes(query) ? "block" : "none";
    });
-
  });
-
 });
 
 /* PWA */
