@@ -41,25 +41,15 @@ input,select{width:90%;padding:12px;margin:6px;background:#fff;color:#000;border
 
 <div id="bgLuxury"></div>
 
-<!-- PIN LOCK -->
+<!-- PASSWORD LOCK -->
 <div id="lock">
-<h2 id="lockTitle">Create 4 Digit PIN</h2>
-<div class="display" id="display"></div>
+<h2 id="lockTitle">Create Password</h2>
 
-<div class="keypad">
-<button class="key" onclick="press(1)">1</button>
-<button class="key" onclick="press(2)">2</button>
-<button class="key" onclick="press(3)">3</button>
-<button class="key" onclick="press(4)">4</button>
-<button class="key" onclick="press(5)">5</button>
-<button class="key" onclick="press(6)">6</button>
-<button class="key" onclick="press(7)">7</button>
-<button class="key" onclick="press(8)">8</button>
-<button class="key" onclick="press(9)">9</button>
-<button class="key" onclick="clearCode()">C</button>
-<button class="key" onclick="press(0)">0</button>
-<button class="key" onclick="submitPIN()">OK</button>
-</div>
+<input type="password" id="passwordInput" placeholder="Enter password">
+
+<br><br>
+<button onclick="submitPassword()">Unlock</button>
+
 </div>
 
 <!-- MAIN -->
@@ -70,6 +60,10 @@ input,select{width:90%;padding:12px;margin:6px;background:#fff;color:#000;border
 style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 
 <div class="carousel" id="qrList"></div>
+
+<br>
+<button onclick="removePassword()">Remove Password</button>
+
 </div>
 
 <button id="addBtn" onclick="openPopup()" style="display:none">+</button>
@@ -99,7 +93,7 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 <option value="text">Plain Text</option>
 <option value="link">Website Link</option>
 <option value="wifi">WiFi</option>
- <option value="vcard">Contact vCard</option>
+<option value="vcard">Contact vCard</option>
 </select>
 
 <div id="fields"></div>
@@ -121,39 +115,87 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 
 <script>
 
-/* PIN SYSTEM */
-let entered="";
-function press(n){entered+=n;display.innerText="•".repeat(entered.length);}
-function clearCode(){entered="";display.innerText="";}
+/* PASSWORD SYSTEM */
 
-function submitPIN(){
- let saved=localStorage.getItem("qrPIN");
+function submitPassword(){
+
+ let saved = localStorage.getItem("qrPassword");
+ let entered = passwordInput.value;
+
  if(!saved){
-  if(entered.length!==4){alert("Enter 4 digit PIN");return;}
-  localStorage.setItem("qrPIN",entered);
-  alert("PIN saved");
-  entered="";display.innerText="";
-  lockTitle.innerText="Enter PIN";
+
+  if(entered.length < 4){
+   alert("Password must be at least 4 characters");
+   return;
+  }
+
+  localStorage.setItem("qrPassword",entered);
+  alert("Password saved");
+
+  passwordInput.value="";
+  lockTitle.innerText="Enter Password";
   return;
  }
+
  if(entered===saved){
+
   lock.style.display="none";
   main.style.display="block";
   addBtn.style.display="block";
   loadQR();
- }else alert("Wrong PIN");
- clearCode();
+
+ }else{
+
+  alert("Wrong Password");
+
+ }
+
+ passwordInput.value="";
 }
-if(localStorage.getItem("qrPIN")) lockTitle.innerText="Enter PIN";
+
+if(localStorage.getItem("qrPassword"))
+ lockTitle.innerText="Enter Password";
+
+
+function removePassword(){
+
+ let pass = prompt("Enter current password");
+
+ if(pass === localStorage.getItem("qrPassword")){
+
+  localStorage.removeItem("qrPassword");
+
+  alert("Password removed. Reload page to create new password.");
+
+ }else{
+
+  alert("Wrong password");
+
+ }
+
+}
+
 
 /* INDEXED DB */
+
 let db;
 let request=indexedDB.open("qrVault",1);
-request.onupgradeneeded=e=>{db=e.target.result;db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});};
-request.onsuccess=e=>{db=e.target.result;loadQR();};
+
+request.onupgradeneeded=e=>{
+ db=e.target.result;
+ db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});
+};
+
+request.onsuccess=e=>{
+ db=e.target.result;
+ loadQR();
+};
+
 
 /* MODE SWITCH */
+
 function modeChange(){
+
  if(qrMode.value==="upload"){
   uploadBox.style.display="block";
   generatorBox.style.display="none";
@@ -162,23 +204,38 @@ function modeChange(){
   generatorBox.style.display="block";
   buildFields();
  }
+
 }
 
+
 /* QR GENERATOR */
+
 let generatedData="";
 let generatedImage="";
 
 function buildFields(){
+
  fields.innerHTML="";
+
  if(qrType.value==="text") addRow("Text");
- if(qrType.value==="link"){addRow("URL");addRow("Title");}
- if(qrType.value==="wifi"){addRow("SSID");addRow("Password");}
+
+ if(qrType.value==="link"){
+  addRow("URL");
+  addRow("Title");
+ }
+
+ if(qrType.value==="wifi"){
+  addRow("SSID");
+  addRow("Password");
+ }
+
  if(qrType.value==="vcard"){
   addRow("Full Name");
   addRow("Phone");
   addRow("Email");
   addRow("Organization");
  }
+
 }
 
 function addRow(label="Extra"){
@@ -187,16 +244,22 @@ function addRow(label="Extra"){
  fields.appendChild(div);
 }
 
+
 function generateQR(){
+
  let vals=[...fields.querySelectorAll("input")].map(i=>i.value);
  let type=qrType.value;
 
  if(type==="text") generatedData=vals.join("\n");
+
  if(type==="link") generatedData=vals[0];
+
  if(type==="wifi") generatedData=`WIFI:T:WPA;S:${vals[0]};P:${vals[1]};;`;
+
  if(type==="vcard")
- generatedData =
- `BEGIN:VCARD
+
+ generatedData=
+`BEGIN:VCARD
 VERSION:3.0
 FN:${vals[0]}
 TEL:${vals[1]}
@@ -205,40 +268,66 @@ ORG:${vals[3]}
 END:VCARD`;
 
 
- QRCode.toDataURL(generatedData,{width:600},(err,url)=>{
-  generatedImage=url;
-  preview.innerHTML=`<img src="${url}" style="width:100%">`;
- });
+QRCode.toDataURL(generatedData,{width:600},(err,url)=>{
+
+ generatedImage=url;
+ preview.innerHTML=`<img src="${url}" style="width:100%">`;
+
+});
+
 }
 
+
 /* UPLOAD QR */
+
 let tempImg="";
+
 function loadImage(e){
+
  let file=e.target.files[0];
  let reader=new FileReader();
+
  reader.onload=function(evt){
+
   let img=new Image();
   img.src=evt.target.result;
+
   img.onload=function(){
+
    let canvas=document.createElement("canvas");
    let ctx=canvas.getContext("2d");
+
    canvas.width=600;
    canvas.height=img.height*(600/img.width);
+
    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
    tempImg=canvas.toDataURL("image/jpeg",0.7);
 
    let data=ctx.getImageData(0,0,canvas.width,canvas.height);
    let code=jsQR(data.data,canvas.width,canvas.height);
+
    if(code) qrText.value=code.data;
+
   };
+
  };
+
  reader.readAsDataURL(file);
+
 }
 
-/* SAVE */
+
+/* SAVE QR */
+
 function saveQR(){
+
  let title=qrTitle.value;
- if(!title){alert("Title required");return;}
+
+ if(!title){
+  alert("Title required");
+  return;
+ }
 
  let image="";
  let text="";
@@ -251,89 +340,145 @@ function saveQR(){
   text=generatedData;
  }
 
- if(!image){alert("Generate or upload first");return;}
+ if(!image){
+  alert("Generate or upload first");
+  return;
+ }
 
  let tx=db.transaction("qrStore","readwrite");
- tx.objectStore("qrStore").add({title,image,text});
+
+ tx.objectStore("qrStore").add({
+  title,image,text
+ });
+
  closePopup();
  loadQR();
+
 }
 
-/* LOAD */
+
+/* LOAD QR */
+
 function loadQR(){
+
  let tx=db.transaction("qrStore","readonly");
  let req=tx.objectStore("qrStore").getAll();
 
  req.onsuccess=function(){
+
   qrList.innerHTML="";
+
   req.result.forEach(item=>{
+
    qrList.innerHTML+=`
    <div class="card">
     <h4>${item.title}</h4>
     <img data-src="${item.image}" ondblclick="copyQR('${item.text}')">
     <button onclick="deleteQR(${item.id})" style="margin-top:10px;background:#ff4d4d;color:#fff">Delete</button>
    </div>`;
+
   });
+
   activateLazyLoad();
+
  };
+
 }
 
-/* LAZY */
+
+/* LAZY LOAD */
+
 function activateLazyLoad(){
+
  const imgs=document.querySelectorAll("img[data-src]");
+
  const observer=new IntersectionObserver(entries=>{
+
   entries.forEach(e=>{
+
    if(e.isIntersecting){
+
     e.target.src=e.target.dataset.src;
     observer.unobserve(e.target);
+
    }
+
   });
+
  },{root:qrList,threshold:0.5});
+
  imgs.forEach(img=>observer.observe(img));
+
 }
+
 
 /* COPY */
+
 function copyQR(text){
+
  navigator.clipboard.writeText(text);
  alert("Copied");
+
 }
+
 
 /* DELETE */
+
 function deleteQR(id){
+
  if(!confirm("Delete?")) return;
+
  let tx=db.transaction("qrStore","readwrite");
+
  tx.objectStore("qrStore").delete(id);
+
  tx.oncomplete=loadQR;
+
 }
 
+
 /* POPUP */
+
 function openPopup(){popup.style.display="block";modeChange();}
 function closePopup(){popup.style.display="none";}
 
+
 /* SEARCH */
+
 document.addEventListener("DOMContentLoaded", () => {
+
  const search = document.getElementById("titleSearch");
+
  if(!search) return;
 
  search.addEventListener("input", function(){
-   const query = this.value.toLowerCase().trim();
-   const cards = document.querySelectorAll(".card");
-   cards.forEach(card => {
-     const title = card.querySelector("h4").innerText.toLowerCase();
-     card.style.display = title.includes(query) ? "block" : "none";
-   });
+
+  const query = this.value.toLowerCase().trim();
+
+  const cards = document.querySelectorAll(".card");
+
+  cards.forEach(card => {
+
+   const title = card.querySelector("h4").innerText.toLowerCase();
+
+   card.style.display = title.includes(query) ? "block" : "none";
+
+  });
+
  });
+
 });
 
 
 /* PWA */
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js")
-      .then(() => console.log("Service Worker Registered ✅"))
-      .catch((error) => console.log("SW Error ❌", error));
-  };
 
+if ("serviceWorker" in navigator) {
 
+ navigator.serviceWorker.register("./service-worker.js")
+ .then(()=>console.log("Service Worker Registered"))
+ .catch(err=>console.log("SW Error",err));
+
+}
 
 </script>
 </body>
