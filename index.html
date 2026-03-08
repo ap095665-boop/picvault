@@ -5,89 +5,211 @@
 <title>QR Wallet</title>
 
 <style>
-body{background:#0b0b0b;color:#00ff88;font-family:monospace;margin:0;text-align:center}
-button{padding:12px;border:none;border-radius:10px;background:#111;color:#00ff88;font-size:18px}
 
-.carousel{display:flex;overflow-x:auto;gap:20px;padding:20px;scroll-snap-type:x mandatory}
-.card{min-width:100%;background:#111;border-radius:12px;padding:15px;scroll-snap-align:center}
-.card img{width:100%;border-radius:10px}
+body{
+background:#0b0b0b;
+color:#00ff88;
+font-family:monospace;
+margin:0;
+text-align:center
+}
 
-#addBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:28px;background:#00ff88;color:#000}
+button{
+padding:12px;
+border:none;
+border-radius:10px;
+background:#111;
+color:#00ff88;
+font-size:18px
+}
 
-input,select{width:90%;padding:12px;margin:6px;background:#fff;color:#000;border:none;border-radius:8px}
+.display{
+width:240px;
+height:50px;
+margin:20px auto;
+background:#000;
+border-radius:10px;
+font-size:26px;
+display:flex;
+align-items:center;
+justify-content:center
+}
 
-#lockScreen{
+.keypad{
+display:grid;
+grid-template-columns:repeat(3,80px);
+gap:15px;
+justify-content:center;
+margin-top:20px
+}
+
+.key{
+width:80px;
+height:80px;
+font-size:22px;
+border-radius:12px
+}
+
+#addBtn{
+position:fixed;
+bottom:20px;
+right:20px;
+width:60px;
+height:60px;
+border-radius:50%;
+font-size:28px;
+background:#00ff88;
+color:#000
+}
+
+.carousel{
+display:flex;
+overflow-x:auto;
+gap:20px;
+padding:20px;
+scroll-snap-type:x mandatory
+}
+
+.card{
+min-width:100%;
+background:#111;
+border-radius:12px;
+padding:15px;
+scroll-snap-align:center;
+position:relative
+}
+
+.card img{
+width:100%;
+border-radius:10px
+}
+
+#bgLuxury{
 position:fixed;
 top:0;
 left:0;
 width:100%;
 height:100%;
+z-index:-1;
+background:linear-gradient(270deg,#0b0b0b,#001a14,#00332a,#0b0b0b);
+background-size:800% 800%;
+animation:luxMove 18s ease infinite
+}
+
+@keyframes luxMove{
+0%{background-position:0% 50%}
+50%{background-position:100% 50%}
+100%{background-position:0% 50%}
+}
+
+input,select{
+width:90%;
+padding:12px;
+margin:6px;
+background:#fff;
+color:#000;
+border:none;
+border-radius:8px
+}
+
+#lockScreen{
+position:fixed;
+top:0;
+left:0;
+right:0;
+bottom:0;
 background:#000;
 display:none;
 align-items:center;
 justify-content:center;
 flex-direction:column;
-z-index:9999;
+z-index:999
 }
+
 </style>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0b0b">
+
 </head>
 
 <body>
 
-<!-- PASSWORD LOCK SCREEN -->
+<div id="bgLuxury"></div>
+
+
+<!-- LOCK SCREEN -->
+
 <div id="lockScreen">
+
 <h2>Enter Password</h2>
-<input type="password" id="unlockPass" placeholder="Password">
+
+<input type="password" id="unlockPass">
+
+<br><br>
+
 <button onclick="unlockApp()">Unlock</button>
+
 </div>
 
+
 <!-- MAIN -->
+
 <div id="main">
 
 <h2>QR Wallet</h2>
 
-<input id="titleSearch" placeholder="Search QR by title...">
+<input id="titleSearch"
+placeholder="Search QR by title..."
+style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 
 <div class="carousel" id="qrList"></div>
 
 <br>
 
-<!-- PASSWORD SETTINGS -->
 <button onclick="addPassword()">Add Password Lock</button>
 <button onclick="removePassword()">Remove Password Lock</button>
 
 </div>
 
+
 <button id="addBtn" onclick="openPopup()">+</button>
 
 
 <!-- POPUP -->
-<div id="popup" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;overflow-y:auto">
+
+<div id="popup"
+style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;padding:20px;overflow-y:auto">
 
 <h3>Add QR</h3>
 
 <input id="qrTitle" placeholder="Title">
 
 <select id="qrMode" onchange="modeChange()">
+
 <option value="upload">Upload QR Image</option>
 <option value="generate">Generate QR</option>
+
 </select>
 
+
 <div id="uploadBox">
+
 <input type="file" accept="image/*" onchange="loadImage(event)">
-<input id="qrText" placeholder="Detected text">
+<input id="qrText" placeholder="Detected text (editable)">
+
 </div>
+
 
 <div id="generatorBox" style="display:none">
 
 <select id="qrType" onchange="buildFields()">
+
 <option value="text">Plain Text</option>
 <option value="link">Website Link</option>
 <option value="wifi">WiFi</option>
 <option value="vcard">Contact vCard</option>
+
 </select>
 
 <div id="fields"></div>
@@ -99,17 +221,23 @@ z-index:9999;
 
 </div>
 
+<br>
+
 <button onclick="saveQR()">SAVE</button>
 <button onclick="closePopup()">CANCEL</button>
 
 </div>
 
+
+
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
+
+
 <script>
 
-/* PASSWORD SYSTEM */
+/* PASSWORD FEATURE */
 
 function addPassword(){
 
@@ -120,18 +248,19 @@ alert("Password already exists")
 return
 }
 
-let pass=prompt("Create new password")
+let pass=prompt("Create password")
 
-if(!pass||pass.length<4){
-alert("Password must be at least 4 characters")
+if(!pass || pass.length<4){
+alert("Password must be 4+ characters")
 return
 }
 
 localStorage.setItem("qrPassword",pass)
 
-alert("Password lock enabled")
+alert("Password enabled")
 
 }
+
 
 function removePassword(){
 
@@ -158,7 +287,6 @@ alert("Wrong password")
 
 }
 
-/* LOCK CHECK */
 
 window.onload=function(){
 
@@ -172,7 +300,7 @@ lockScreen.style.display="flex"
 
 }
 
-/* UNLOCK */
+
 
 function unlockApp(){
 
@@ -193,20 +321,23 @@ unlockPass.value=""
 }
 
 
+
 /* INDEXED DB */
 
-let db;
-let request=indexedDB.open("qrVault",1);
+let db
+
+let request=indexedDB.open("qrVault",1)
 
 request.onupgradeneeded=e=>{
-db=e.target.result;
-db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true});
-};
+db=e.target.result
+db.createObjectStore("qrStore",{keyPath:"id",autoIncrement:true})
+}
 
 request.onsuccess=e=>{
-db=e.target.result;
-loadQR();
-};
+db=e.target.result
+loadQR()
+}
+
 
 
 /* MODE SWITCH */
@@ -214,15 +345,16 @@ loadQR();
 function modeChange(){
 
 if(qrMode.value==="upload"){
-uploadBox.style.display="block";
-generatorBox.style.display="none";
+uploadBox.style.display="block"
+generatorBox.style.display="none"
 }else{
-uploadBox.style.display="none";
-generatorBox.style.display="block";
-buildFields();
+uploadBox.style.display="none"
+generatorBox.style.display="block"
+buildFields()
 }
 
 }
+
 
 
 /* QR GENERATOR */
@@ -255,15 +387,24 @@ addRow("Organization")
 
 }
 
+
+
 function addRow(label="Extra"){
+
 let div=document.createElement("div")
+
 div.innerHTML=`<input placeholder="${label}">`
+
 fields.appendChild(div)
+
 }
+
+
 
 function generateQR(){
 
 let vals=[...fields.querySelectorAll("input")].map(i=>i.value)
+
 let type=qrType.value
 
 if(type==="text") generatedData=vals.join("\n")
@@ -285,6 +426,7 @@ END:VCARD`
 QRCode.toDataURL(generatedData,{width:600},(err,url)=>{
 
 generatedImage=url
+
 preview.innerHTML=`<img src="${url}" style="width:100%">`
 
 })
@@ -292,26 +434,31 @@ preview.innerHTML=`<img src="${url}" style="width:100%">`
 }
 
 
-/* UPLOAD */
+
+/* UPLOAD QR */
 
 let tempImg=""
 
 function loadImage(e){
 
 let file=e.target.files[0]
+
 let reader=new FileReader()
 
 reader.onload=function(evt){
 
 let img=new Image()
+
 img.src=evt.target.result
 
 img.onload=function(){
 
 let canvas=document.createElement("canvas")
+
 let ctx=canvas.getContext("2d")
 
 canvas.width=600
+
 canvas.height=img.height*(600/img.width)
 
 ctx.drawImage(img,0,0,canvas.width,canvas.height)
@@ -319,6 +466,7 @@ ctx.drawImage(img,0,0,canvas.width,canvas.height)
 tempImg=canvas.toDataURL("image/jpeg",0.7)
 
 let data=ctx.getImageData(0,0,canvas.width,canvas.height)
+
 let code=jsQR(data.data,canvas.width,canvas.height)
 
 if(code) qrText.value=code.data
@@ -330,6 +478,7 @@ if(code) qrText.value=code.data
 reader.readAsDataURL(file)
 
 }
+
 
 
 /* SAVE */
@@ -364,9 +513,11 @@ let tx=db.transaction("qrStore","readwrite")
 tx.objectStore("qrStore").add({title,image,text})
 
 closePopup()
+
 loadQR()
 
 }
+
 
 
 /* LOAD */
@@ -374,6 +525,7 @@ loadQR()
 function loadQR(){
 
 let tx=db.transaction("qrStore","readonly")
+
 let req=tx.objectStore("qrStore").getAll()
 
 req.onsuccess=function(){
@@ -382,18 +534,96 @@ qrList.innerHTML=""
 
 req.result.forEach(item=>{
 
-qrList.innerHTML+=`
-<div class="card">
-<h4>${item.title}</h4>
-<img src="${item.image}" ondblclick="copyQR('${item.text}')">
-<button onclick="deleteQR(${item.id})">Delete</button>
-</div>`
+let card=document.createElement("div")
+
+card.className="card"
+
+let title=document.createElement("h4")
+
+title.innerText=item.title
+
+let img=document.createElement("img")
+
+img.dataset.src=item.image
+
+
+let lastTap=0
+
+img.addEventListener("touchend",function(){
+
+let now=new Date().getTime()
+
+if(now-lastTap<300){
+copyQR(item.text)
+}
+
+lastTap=now
 
 })
 
+
+img.addEventListener("dblclick",function(){
+copyQR(item.text)
+})
+
+
+let del=document.createElement("button")
+
+del.innerText="Delete"
+
+del.style.marginTop="10px"
+
+del.style.background="#ff4d4d"
+
+del.style.color="#fff"
+
+del.onclick=function(){
+deleteQR(item.id)
+}
+
+
+card.appendChild(title)
+card.appendChild(img)
+card.appendChild(del)
+
+qrList.appendChild(card)
+
+})
+
+activateLazyLoad()
+
 }
 
 }
+
+
+
+/* LAZY LOAD */
+
+function activateLazyLoad(){
+
+const imgs=document.querySelectorAll("img[data-src]")
+
+const observer=new IntersectionObserver(entries=>{
+
+entries.forEach(e=>{
+
+if(e.isIntersecting){
+
+e.target.src=e.target.dataset.src
+
+observer.unobserve(e.target)
+
+}
+
+})
+
+},{root:qrList,threshold:0.5})
+
+imgs.forEach(img=>observer.observe(img))
+
+}
+
 
 
 /* COPY */
@@ -401,9 +631,11 @@ qrList.innerHTML+=`
 function copyQR(text){
 
 navigator.clipboard.writeText(text)
+
 alert("Copied")
 
 }
+
 
 
 /* DELETE */
@@ -421,15 +653,27 @@ tx.oncomplete=loadQR
 }
 
 
+
 /* POPUP */
 
-function openPopup(){popup.style.display="block";modeChange();}
-function closePopup(){popup.style.display="none";}
+function openPopup(){
+popup.style.display="block"
+modeChange()
+}
+
+function closePopup(){
+popup.style.display="none"
+}
+
 
 
 /* SEARCH */
 
-titleSearch.addEventListener("input",function(){
+document.addEventListener("DOMContentLoaded",()=>{
+
+const search=document.getElementById("titleSearch")
+
+search.addEventListener("input",function(){
 
 const q=this.value.toLowerCase()
 
@@ -442,6 +686,9 @@ card.style.display=title.includes(q)?"block":"none"
 })
 
 })
+
+})
+
 
 
 /* PWA */
