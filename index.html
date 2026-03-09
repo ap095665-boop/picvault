@@ -733,9 +733,19 @@ navigator.serviceWorker.register("./service-worker.js")
   
 let startX=0
 let endX=0
+let edgeSwipe=false
 
 document.addEventListener("touchstart",e=>{
+
 startX=e.changedTouches[0].screenX
+
+/* detect if swipe started from left edge */
+if(startX < 30){
+edgeSwipe=true
+}else{
+edgeSwipe=false
+}
+
 })
 
 document.addEventListener("touchend",e=>{
@@ -744,12 +754,12 @@ endX=e.changedTouches[0].screenX
 
 let diff=endX-startX
 
-/* swipe right → open */
-if(diff>80){
+/* open settings only if edge swipe */
+if(edgeSwipe && diff>80){
 openSettings()
 }
 
-/* swipe left → close */
+/* close settings from anywhere */
 if(diff<-80){
 closeSettings()
 }
