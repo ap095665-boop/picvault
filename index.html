@@ -125,7 +125,22 @@ justify-content:center;
 flex-direction:column;
 z-index:999
 }
+#settingsPanel{
+position:fixed;
+top:0;
+left:-260px;
+width:260px;
+height:100%;
+background:#111;
+color:#00ff88;
+padding:20px;
+transition:left 0.3s ease;
+z-index:1000;
+}
 
+#settingsPanel.open{
+left:0;
+}
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -165,13 +180,17 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 
 <div class="carousel" id="qrList"></div>
 
-<br>
+
+
+</div>
+<div id="settingsPanel">
+
+<h3>Security</h3>
 
 <button onclick="addPassword()">Add Password Lock</button>
 <button onclick="removePassword()">Remove Password Lock</button>
 
 </div>
-
 
 <button id="addBtn" onclick="openPopup()">+</button>
 
@@ -698,7 +717,39 @@ if("serviceWorker" in navigator){
 navigator.serviceWorker.register("./service-worker.js")
 
 }
+/* SWIPE SETTINGS PANEL */
 
+let startX=0
+let endX=0
+
+document.addEventListener("touchstart",e=>{
+startX=e.changedTouches[0].screenX
+})
+
+document.addEventListener("touchend",e=>{
+
+endX=e.changedTouches[0].screenX
+
+let diff=endX-startX
+
+if(diff>80){
+openSettings()
+}
+
+if(diff<-80){
+closeSettings()
+}
+
+})
+
+function openSettings(){
+settingsPanel.classList.add("open")
+}
+
+function closeSettings(){
+settingsPanel.classList.remove("open")
+  }
+  
 </script>
 
 </body>
