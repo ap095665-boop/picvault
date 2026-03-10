@@ -76,9 +76,61 @@ background:#111;
 border-radius:12px;
 padding:15px;
 scroll-snap-align:center;
-position:relative
+position:relative;
+overflow:hidden;
+transition:transform 0.3s ease;
 }
 
+/* glowing animated border */
+
+.card::before{
+content:"";
+position:absolute;
+top:-2px;
+left:-2px;
+right:-2px;
+bottom:-2px;
+background:linear-gradient(
+45deg,
+#00ff88,
+#00e1ff,
+#7a5cff,
+#ff3cac,
+#00ff88
+);
+background-size:400% 400%;
+z-index:-1;
+border-radius:14px;
+animation:cardGlow 8s linear infinite;
+}
+
+/* hover / tap transform */
+
+.card:active{
+transform:scale(0.97);
+}
+
+.card:hover{
+transform:scale(1.02);
+}
+
+/* animation */
+
+@keyframes cardGlow{
+
+0%{
+background-position:0% 50%;
+}
+
+50%{
+background-position:100% 50%;
+}
+
+100%{
+background-position:0% 50%;
+}
+
+}
 .card img{
 width:100%;
 border-radius:10px
