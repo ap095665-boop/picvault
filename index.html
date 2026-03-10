@@ -237,7 +237,10 @@ style="width:85%;padding:12px;margin-top:10px;border-radius:10px;border:none">
 
 <div class="carousel" id="qrList"></div>
 
-
+<div style="margin-bottom:30px">
+<button onclick="prevCard()">◀ Prev</button>
+<button onclick="nextCard()">Next ▶</button>
+</div>
 
 </div>
 <div id="settingsPanel">
@@ -824,6 +827,33 @@ settingsPanel.classList.add("open")
 
 function closeSettings(){
 settingsPanel.classList.remove("open")
+}
+
+function nextCard(){
+
+const container = document.getElementById("qrList")
+
+const cardWidth = container.querySelector(".card").offsetWidth + 20
+
+container.scrollBy({
+left: cardWidth,
+behavior:"smooth"
+})
+
+}
+
+
+function prevCard(){
+
+const container = document.getElementById("qrList")
+
+const cardWidth = container.querySelector(".card").offsetWidth + 20
+
+container.scrollBy({
+left: -cardWidth,
+behavior:"smooth"
+})
+
 }
   
 </script>
