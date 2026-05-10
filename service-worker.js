@@ -1,48 +1,98 @@
-const CACHE_NAME = "vault-cache-v1";
+const CACHE_NAME = "vault-cache-v3";
 
-const FILES_TO_CACHE = [
+const STATIC_ASSETS = [
   "./",
   "./index.html",
-  "./manifest.json"
+  "./manifest.json",
+  "./style.css",
+  "./app.js",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
-// install & cache core files
-self.addEventListener("install", event => {
+// INSTALL
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(FILES_TO_CACHE);
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
     })
   );
 });
 
-// activate
-self.addEventListener("activate", event => {
-  event.waitUntil(self.clients.claim());
+// ACTIVATE
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+
+      // remove old caches
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys.map((key) => {
+            if (key !== CACHE_NAME) {
+              return caches.delete(key);
+            }
+          })
+        )
+      )
+    ])
+  );
 });
 
-// fetch: cache-first strategy (images + app)
-self.addEventListener("fetch", event => {
+// FETCH
+self.addEventListener("fetch", (event) => {
+
+  // only GET requests
+  if (event.request.method !== "GET") return;
+
   event.respondWith(
-    caches.match(event.request).then(response => {
-      if (response) {
-        return response;
+    caches.match(event.request).then((cachedResponse) => {
+
+      // INSTANT RESPONSE FROM CACHE
+      if (cachedResponse) {
+
+        // update in background
+        fetch(event.request)
+          .then((networkResponse) => {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkResponse.clone());
+            });
+          })
+          .catch(() => {});
+
+        return cachedResponse;
       }
 
-      return fetch(event.request).then(networkResponse => {
-        // cache images dynamically
-        if (event.request.url.includes(".png") ||
-            event.request.url.includes(".jpg") ||
-            event.request.url.includes(".jpeg") ||
-            event.request.url.includes(".webp")) {
+      // NETWORK FIRST IF NOT CACHED
+      return fetch(event.request)
+        .then((networkResponse) => {
 
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
-        }
+          // cache useful assets
+          if (
+            event.request.destination === "script" ||
+            event.request.destination === "style" ||
+            event.request.destination === "image" ||
+            event.request.destination === "font"
+          ) {
 
-        return networkResponse;
-      });
+            const responseClone = networkResponse.clone();
+
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+
+          return networkResponse;
+        })
+        .catch(() => {
+
+          // offline fallback
+          if (event.request.mode === "navigate") {
+            return caches.match("./index.html");
+          }
+        });
     })
   );
 });
