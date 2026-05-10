@@ -1,33 +1,34 @@
-const CACHE_NAME = "vault-cache-v3";
+const CACHE_NAME = "vault-cache-v1";
 
-const STATIC_ASSETS = [
+const ASSETS = [
   "./",
   "./index.html",
-  "./manifest.json",
   "./style.css",
   "./app.js",
+  "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
 ];
 
 // INSTALL
 self.addEventListener("install", (event) => {
+
   self.skipWaiting();
 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return cache.addAll(ASSETS);
     })
   );
 });
 
 // ACTIVATE
 self.addEventListener("activate", (event) => {
+
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
 
-      // remove old caches
       caches.keys().then((keys) =>
         Promise.all(
           keys.map((key) => {
@@ -44,55 +45,51 @@ self.addEventListener("activate", (event) => {
 // FETCH
 self.addEventListener("fetch", (event) => {
 
-  // only GET requests
   if (event.request.method !== "GET") return;
 
   event.respondWith(
+
     caches.match(event.request).then((cachedResponse) => {
 
-      // INSTANT RESPONSE FROM CACHE
+      // RETURN CACHE INSTANTLY
       if (cachedResponse) {
 
-        // update in background
-        fetch(event.request)
-          .then((networkResponse) => {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse.clone());
-            });
-          })
-          .catch(() => {});
+        // UPDATE SILENTLY IN BACKGROUND
+        event.waitUntil(
+          fetch(event.request)
+            .then((networkResponse) => {
+
+              if (!networkResponse || networkResponse.status !== 200) {
+                return;
+              }
+
+              return caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, networkResponse.clone());
+              });
+
+            })
+            .catch(() => {})
+        );
 
         return cachedResponse;
       }
 
-      // NETWORK FIRST IF NOT CACHED
-      return fetch(event.request)
-        .then((networkResponse) => {
+      // FIRST TIME FETCH
+      return fetch(event.request).then((networkResponse) => {
 
-          // cache useful assets
-          if (
-            event.request.destination === "script" ||
-            event.request.destination === "style" ||
-            event.request.destination === "image" ||
-            event.request.destination === "font"
-          ) {
-
-            const responseClone = networkResponse.clone();
-
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
-
+        if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse;
-        })
-        .catch(() => {
+        }
 
-          // offline fallback
-          if (event.request.mode === "navigate") {
-            return caches.match("./index.html");
-          }
+        const clone = networkResponse.clone();
+
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, clone);
         });
+
+        return networkResponse;
+      });
+
     })
   );
 });
