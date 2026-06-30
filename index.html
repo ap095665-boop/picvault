@@ -117,7 +117,7 @@ background-position:0% 50%;
 .card img{
 width:100%;
 border-radius:10px;
-background:#ffffff;
+background:none;
 padding:12px;
 box-sizing:border-box;
 }
@@ -500,7 +500,7 @@ EMAIL:${vals[2]}
 ORG:${vals[3]}
 END:VCARD`
 
-QRCode.toDataURL(generatedData,{width:600, margin:0, color:{
+QRCode.toDataURL(generatedData,{width:600, color:{
 dark:"#00ff88",
 light:"#001a14"}},(err,url)=>{
 
