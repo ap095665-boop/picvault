@@ -500,7 +500,7 @@ EMAIL:${vals[2]}
 ORG:${vals[3]}
 END:VCARD`
 
-QRCode.toDataURL(generatedData,{width:600, color:{
+QRCode.toDataURL(generatedData,{width:600, margin:0, color:{
 dark:"#00ff88",
 light:"#001a14"}},(err,url)=>{
 
