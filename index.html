@@ -122,8 +122,32 @@ background:transparent;
 padding:0;
 box-sizing:border-box;
 border:none;
+  animation:qrBorderGlow 3.5s ease-in-out infinite;
+}
+@keyframes qrBorderGlow{
+
+0%{
+box-shadow:
+0 0 5px #00ff88,
+0 0 10px #00ff88,
+0 0 20px #00ff88;
 }
 
+50%{
+box-shadow:
+0 0 10px #00ff88,
+0 0 20px #00ff88,
+0 0 40px #00ff88;
+}
+
+100%{
+box-shadow:
+0 0 5px #00ff88,
+0 0 10px #00ff88,
+0 0 20px #00ff88;
+}
+
+}
 #bgLuxury{
 position:fixed;
 top:0;
