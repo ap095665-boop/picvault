@@ -71,13 +71,13 @@ button{
 
 /* ===================== HEADER ===================== */
 
-.brandWrap{ padding:48px 20px 8px; }
+.brandWrap{ padding:calc(48px + env(safe-area-inset-top)) 20px 8px; }
 
 .wordmark{
   font-family:'Cormorant Garamond', serif;
   font-weight:600;
-  font-size:44px;
-  letter-spacing:10px;
+  font-size:clamp(32px, 9vw, 44px);
+  letter-spacing:clamp(6px, 2vw, 10px);
   margin:0;
   color:var(--text);
   opacity:0;
@@ -121,18 +121,23 @@ button{
 /* ===================== CAROUSEL / CARDS ===================== */
 
 .carousel{
+  --cardW:min(360px, 84vw);
   display:flex;
   overflow-x:auto;
   gap:22px;
-  padding:34px 26px 10px;
+  padding:34px calc((100% - var(--cardW)) / 2) 10px;
   scroll-snap-type:x mandatory;
+  scroll-padding-left:calc((100% - var(--cardW)) / 2);
+  scroll-padding-right:calc((100% - var(--cardW)) / 2);
   scrollbar-width:none;
 }
 .carousel::-webkit-scrollbar{ display:none; }
 
 .card{
-  min-width:86%;
-  max-width:360px;
+  width:var(--cardW);
+  min-width:var(--cardW);
+  max-width:var(--cardW);
+  flex:0 0 auto;
   border-radius:20px;
   padding:22px;
   scroll-snap-align:center;
@@ -298,7 +303,8 @@ button{
 
 #addBtn{
   position:fixed;
-  bottom:26px; right:26px;
+  bottom:calc(26px + env(safe-area-inset-bottom));
+  right:calc(26px + env(safe-area-inset-right));
   width:58px; height:58px;
   border-radius:50%;
   border:none;
@@ -344,7 +350,7 @@ button{
 }
 #settingsPanel.open{ transform:translateX(0); }
 
-.settingsContent{ padding:40px 26px 60px; text-align:left; max-width:420px; margin:0 auto; }
+.settingsContent{ padding:calc(40px + env(safe-area-inset-top)) 26px calc(60px + env(safe-area-inset-bottom)); text-align:left; max-width:420px; margin:0 auto; }
 
 .settingsHeader{
   display:flex; align-items:center; justify-content:space-between;
